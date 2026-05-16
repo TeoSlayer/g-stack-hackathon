@@ -1,0 +1,111 @@
+---
+name: ios-xcodegen
+description: Regenerate Xcode project from project.yml and classify pbxproj drift as harmless or real.
+status: draft
+version: 0.1
+---
+
+# /ios-xcodegen
+
+## When to invoke
+
+Before `/ios-build` whenever `project.yml` has been edited (or the build is
+giving "file not found" / "no such scheme" errors that smell like generator
+drift). Also useful as a standalone sanity check: a project should regenerate
+to a byte-equivalent (or only-trivially-different) pbxproj. If it doesn't,
+something is being edited by hand that shouldn't be — and the next regen
+silently destroys it.
+
+Wrong call when there's no `project.yml` (this is a CocoaPods-style or
+hand-maintained project — different tool). Also wrong as part of CI without
+human review of the diff — auto-committing regenerated pbxproj on every push
+is how you erase deliberate manual edits.
+
+## Inputs
+
+Required:
+- `project_root` — directory containing `project.yml`. Auto-detected if cwd
+  contains one.
+
+Optional:
+- `mode` — `validate` (default; regen + diff + reset) or `apply` (regen + diff
+  + leave changes in working tree for human review).
+- `acceptable_drift_categories` — list of drift kinds tolerated without
+  flagging. Default: `["whitespace", "ordering"]`. Add `"file_uuid_churn"` if
+  the generator is known to renumber on every run.
+
+Assumes:
+- `xcodegen` on PATH (`which xcodegen`).
+- `project.yml` is the source of truth.
+- The repo is git-tracked (uses `git diff` for classification).
+
+## Procedure
+
+1. **Locate `project.yml`.** Fail fast if absent.
+2. **Snapshot.** `cp project.pbxproj project.pbxproj.before`.
+3. **Regenerate.** `xcodegen generate --spec project.yml` from `project_root`.
+   Capture stdout/stderr — generator warnings frequently flag misconfigurations.
+4. **Diff.**
+   ```
+   diff -u project.pbxproj.before *.xcodeproj/project.pbxproj
+   ```
+5. **Classify each hunk:**
+   - `whitespace` — only blank lines or trailing space changed.
+   - `ordering` — same lines, different order (sort).
+   - `file_uuid_churn` — only `{HEX}` UUID values changed; structure identical.
+   - `target_change` — a `PBXNativeTarget` or `PBXAggregateTarget` block changed.
+   - `build_setting_change` — a `buildSettings` dict changed.
+   - `source_change` — a `PBXFileReference` or `PBXBuildFile` added/removed.
+   - `scheme_change` — `xcshareddata/xcschemes/*.xcscheme` changed.
+   - `other` — anything else.
+6. **Report.** If all hunks are in `acceptable_drift_categories`, drift is
+   `harmless`. Otherwise `real`. Either way emit the full classification.
+7. **Reset (validate mode) or leave (apply mode).** In `validate`,
+   `git checkout -- *.xcodeproj/project.pbxproj` and remove the `.before`
+   snapshot. In `apply`, leave the regenerated file for the human to commit
+   intentionally.
+
+## Outputs
+
+Report (`gstack-ios/.cache/ios-xcodegen-<project>.json`):
+```json
+{
+  "skill": "ios-xcodegen",
+  "version": "0.1",
+  "project_root": "<abs>",
+  "mode": "validate|apply",
+  "drift": "none|harmless|real",
+  "hunks": [
+    {"category": "build_setting_change", "lines_added": 3, "lines_removed": 1,
+     "sample": "<first 5 lines of hunk>"}
+  ],
+  "generator_warnings": ["<line>"],
+  "ok": true
+}
+```
+
+Side effects:
+- `validate` mode: none after reset.
+- `apply` mode: `*.xcodeproj/project.pbxproj` overwritten; possibly schemes
+  added/removed under `xcshareddata/xcschemes/`.
+
+## Verification
+
+- **Positive:** `drift == "none"` or `drift == "harmless"`. `ok: true`.
+- **Negative:** `drift == "real"` AND the `hunks` list explains *why* in a
+  way a human can act on.
+- **Pathological:** `xcodegen generate` itself fails (`ok: false`) — usually
+  a malformed `project.yml`. Surface generator stderr verbatim.
+
+## Composition
+
+- **Upstream:** none. This skill is a starting point for build-related work.
+- **Downstream:** `/ios-build` — if drift is `real`, downstream callers should
+  decide whether to apply or revert before building.
+- **Pairs with:** `/ios-wiring-check` — both surface "something defined that
+  isn't being used"; this one at the project level, that one at the source
+  level.
+
+## Dogfood log
+
+*(none yet — first dogfood scheduled for loop iteration 2.)*
