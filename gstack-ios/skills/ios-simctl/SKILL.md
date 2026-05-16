@@ -1,8 +1,6 @@
 ---
 name: ios-simctl
 description: Simulator lifecycle — boot, install, launch, screenshot, push, deep-link, terminate, log capture.
-status: draft
-version: 0.1
 ---
 
 # /ios-simctl
@@ -15,9 +13,9 @@ push, open a deep link, scrape `os_log` output. Also the producer for the
 screenshot artifacts that `/ios-visual-critique` and `/ios-screenshot-diff`
 consume.
 
-Wrong call when the simulator is already running an interactive Xcode debug
-session — driving it from outside will fight the debugger. Wait until the
-debugger is paused or detached.
+Wrong call when the simulator is already running an interactive Xcode
+debug session — driving it from outside will fight the debugger. Wait
+until the debugger is paused or detached.
 
 ## Inputs
 
@@ -25,16 +23,16 @@ Required:
 - `action` — one of: `boot`, `shutdown`, `install`, `uninstall`, `launch`,
   `terminate`, `screenshot`, `push`, `url`, `log`, `state`.
 
-Action-dependent inputs:
-- `device` — name or UDID. Default: the first available `iPhone 15` for iOS
-  actions, `Apple Watch Series 10 (46mm)` for watchOS. Resolved via
-  `xcrun simctl list devices`.
+Action-dependent:
+- `device` — name or UDID. Default: first available `iPhone 15` for iOS
+  actions, `Apple Watch Series 10 (46mm)` for watchOS actions. Resolved
+  via `xcrun simctl list devices`.
 - `app_path` — `.app` bundle path for `install`.
 - `bundle_id` — `com.example.app` for `launch`, `terminate`, `push`, `url`.
 - `payload` — APNs JSON payload for `push`.
 - `link` — URL for `url`.
 - `log_predicate` — `os_log` predicate string for `log`, e.g.
-  `subsystem == "io.vulturelabs.healthsync"`.
+  `subsystem == "com.example.app"`.
 - `out` — output path for `screenshot` or `log`. Default:
   `gstack-ios/.cache/screenshots/<device>-<timestamp>.png` or
   `gstack-ios/.cache/logs/<device>-<timestamp>.log`.
@@ -50,9 +48,10 @@ Each action maps to one or two `xcrun simctl` invocations:
 1. `boot`:
    ```
    xcrun simctl boot "$device"
-   open -a Simulator    # surfaces the UI; safe to omit for headless
+   open -a Simulator    # surfaces UI; safe to omit for headless
    ```
-   Wait until `xcrun simctl list devices | grep "$device" | grep -q "Booted"`.
+   Wait until `xcrun simctl list devices | grep "$device" | grep -q
+   "Booted"`.
 2. `install`: `xcrun simctl install "$device" "$app_path"`.
 3. `launch`:
    ```
@@ -78,9 +77,10 @@ Each action maps to one or two `xcrun simctl` invocations:
    ```
 8. `state`: `xcrun simctl list devices --json` filtered for `$device`.
 
-After every state-changing action: capture a screenshot to
-`gstack-ios/.cache/screenshots/` and reference it in the report (so
-`/ios-visual-critique` can pick up the trail without a separate invocation).
+After every state-changing action, capture a screenshot to
+`gstack-ios/.cache/screenshots/` and reference it in the report — so
+`/ios-visual-critique` can pick up the trail without a separate
+invocation.
 
 ## Outputs
 
@@ -102,19 +102,19 @@ Report (`gstack-ios/.cache/ios-simctl-<action>-<timestamp>.json`):
 }
 ```
 
-Side effects:
+**Side effects:**
 - Simulator state changes (boot, install, etc.). Enumerated under `action`.
-- Files written: screenshot PNG, log NDJSON. All under `gstack-ios/.cache/`.
+- Files written: screenshot PNG, log NDJSON. All under
+  `gstack-ios/.cache/`.
 
 ## Verification
 
-- **Positive:** `ok: true`, expected artifact exists, device state reflects
-  the action (e.g., `launch` → device shows the app's PID in `xcrun simctl
-  spawn ... ps`).
+- **Positive:** `ok: true`, expected artifact exists, device state
+  reflects the action.
 - **Negative:** explicit error from simctl bubbled up verbatim. Common
   failures: `device not booted` (run `boot` first), `Operation timed out`
-  (simulator wedged — `xcrun simctl shutdown all && xcrun simctl erase all`
-  as last resort, but ask the user first).
+  (simulator wedged — `xcrun simctl shutdown all && xcrun simctl erase
+  all` as last resort, with explicit user confirmation).
 - **Screenshot sanity:** PNG > 1 KB AND not all-black (compare first/last
   pixel — all-black indicates boot in progress).
 
@@ -125,7 +125,3 @@ Side effects:
   `/ios-screenshot-diff` (consumes screenshots vs baseline).
 - **Used by:** `/ios-watch-pair` invokes this twice (phone + watch);
   `/ios-widget-preview` invokes this with a widget-specific URL scheme.
-
-## Dogfood log
-
-*(none yet.)*

@@ -1,72 +1,85 @@
 # gstack-ios
 
-A gstack extension that adds iOS / watchOS / WidgetKit refinement skills.
+iOS / watchOS / WidgetKit skill pack for [gstack](https://github.com/garrytan/gstack).
 
-gstack ships a strong general-purpose sprint loop (Think → Plan → Build → Review
-→ Test → Ship → Reflect). The iOS edges of that loop are where things get
-rough: `xcodebuild` output is unparseable wall-of-text, simulators need
+gstack ships a strong general-purpose sprint loop (Think → Plan → Build →
+Review → Test → Ship → Reflect). The iOS edges of that loop are where things
+get rough: `xcodebuild` output is unparseable wall-of-text, simulators need
 orchestration, HealthKit-shaped tests need synthetic data, paired-watch flows
 need both sims booted, widget previews need their own dance, signing fails
-silently. None of that is gstack's job — it's iOS's. gstack-ios fills the gap.
+silently. gstack-ios fills the gap as a peer skill pack.
 
-## What this actually is
+## Skills
 
-A **framework for refinement** expressed as a set of skills. Each skill is a
-reusable protocol with a canonical shape (see [`FRAMEWORK.md`](FRAMEWORK.md)):
-when to invoke it, what it consumes, the procedure it runs, what it produces,
-how the output is verified, and how it composes with other skills.
+| Skill | Purpose |
+|---|---|
+| `/ios-build` | xcodebuild → structured errors / warnings / timing |
+| `/ios-xcodegen` | regenerate `.xcodeproj` from `project.yml`, classify drift |
+| `/ios-test` | XCTest → failures only with file:line |
+| `/ios-simctl` | boot / install / launch / screenshot / push / url / log |
+| `/ios-visual-critique` | structured critique over a screenshot — layout, contrast, truncation, empty states |
+| `/ios-watch-pair` | paired iPhone + Watch sims, both apps, both screens |
+| `/ios-healthkit-seed` | deterministic HK sample injection |
+| `/ios-widget-preview` | headless widget rendering across families |
+| `/ios-wiring-check` | dead / contract-broken declarations |
+| `/ios-signing-doctor` | identity × profile × entitlement diagnosis |
+| `/ios-screenshot-diff` | pixel diff with tolerance + region detection |
+| `/ios-perf-trace` | Instruments trace + per-template summary |
+| `/ios-ship-testflight` | archive → validate → upload → poll |
 
-The skills are the durable artifact. The dogfood target —
-[`../health-sync/`](../health-sync/) — is where each skill is proved against
-real code. Every iteration of this directory's loop must produce both:
+Each skill is a single `SKILL.md` under `skills/<name>/` and conforms to the
+same shape: **When to invoke**, **Inputs**, **Procedure**, **Outputs**,
+**Verification**, **Composition**. The Outputs section pins a JSON schema
+that downstream skills consume — so skills compose without negotiation.
 
-1. A sharpened skill spec.
-2. A concrete change (or filed finding) in `health-sync/` that the skill surfaced.
+## Install
 
-If a skill can't earn its keep on health-sync, it doesn't ship.
+```sh
+git clone <this-repo>
+ln -s "$(pwd)/gstack-ios" ~/.claude/skills/gstack-ios
+```
 
-## Planned skills
+Restart Claude Code. Skills are then invokable as `/ios-build`,
+`/ios-test`, etc. The entry point is [`SKILL.md`](SKILL.md), which routes
+to the relevant sub-skill based on the work in front of you.
 
-| # | Skill | Refines |
-|---|---|---|
-| 1 | `/ios-build` | xcodebuild noise → structured errors / warnings / timing |
-| 2 | `/ios-xcodegen` | `project.yml` ↔ `.xcodeproj` drift |
-| 3 | `/ios-test` | XCTest output → failures only, file:line |
-| 4 | `/ios-simctl` | simulator boot / install / screenshot |
-| 5 | `/ios-watch-pair` | paired iPhone + Watch sims running both targets |
-| 6 | `/ios-healthkit-seed` | inject synthetic HK samples for deterministic tests |
-| 7 | `/ios-widget-preview` | render widget timeline snapshots headlessly |
-| 8 | `/ios-wiring-check` | finds defined-but-uncalled cross-target hooks |
-| 9 | `/ios-signing-doctor` | provisioning / cert failure diagnosis |
-| 10 | `/ios-screenshot-diff` | SwiftUI snapshot regression |
-| 11 | `/ios-perf-trace` | Instruments trace + summary |
-| 12 | `/ios-ship-testflight` | archive → IPA → upload |
+## Requirements
 
-Status of each tracked in [`BACKLOG.md`](BACKLOG.md).
+- macOS with Xcode (any version ≥ 15).
+- `xcodegen` for projects that use it (`brew install xcodegen`).
+- `ripgrep` for `/ios-wiring-check` (`brew install ripgrep`).
+- ImageMagick for `/ios-screenshot-diff` (`brew install imagemagick`) —
+  falls back to Pillow if absent.
+- App Store Connect API key for `/ios-ship-testflight`.
 
-## The loop
+## Cache layout
 
-This directory runs as a self-development loop. Each iteration:
+All skill reports and artifacts live under `gstack-ios/.cache/`:
 
-1. Reads `LOOP.md` for state, picks the next skill from `BACKLOG.md`.
-2. Drafts or sharpens its `skills/<name>/SKILL.md` against the framework template.
-3. Dogfoods the protocol on `health-sync/` and files findings to
-   `../health-sync/REFINEMENTS.md`.
-4. Optionally fixes one filed refinement (a separate, smaller act than
-   defining the skill).
-5. Commits, pushes, updates `LOOP.md` and `BACKLOG.md`.
-6. Schedules the next iteration via `ScheduleWakeup`.
+```
+gstack-ios/.cache/
+├── ios-build-<scheme>-<config>.json
+├── ios-test-<scheme>.json + .xcresult/
+├── ios-simctl-<action>-<ts>.json
+├── ios-visual-critique-<ts>.json + .md
+├── ios-watch-pair-<ts>.json
+├── ios-healthkit-seed-<ts>.json
+├── ios-widget-preview-<scheme>-<ts>.json
+├── ios-wiring-check-<ts>.json
+├── ios-signing-doctor-<ts>.json
+├── ios-screenshot-diff-<ts>.json
+├── ios-perf-trace-<ts>.json + .trace/
+├── ios-ship-testflight-<ts>.json + .xcarchive/ + .ipa
+├── screenshots/
+├── logs/
+├── diffs/
+├── widget-previews/
+└── traces/
+```
 
-The loop stops when `BACKLOG.md` has no pending skills *and*
-`health-sync/REFINEMENTS.md` has no pending findings.
-
-## Install (deferred)
-
-The skills are markdown specs. A future iteration will add an install hook into
-`~/.claude/skills/gstack-ios/` so they become `/ios-build`-style slash commands.
-Until then they're executed by reading the SKILL.md and following its procedure
-verbatim — which is also how their reusability gets stress-tested.
+The cache is gitignored. Reports are overwritten by re-runs (stable
+filename); timestamped artifacts accumulate until cleaned manually.
 
 ## License
 
-AGPL-3.0-or-later, matching the parent repo.
+AGPL-3.0-or-later.

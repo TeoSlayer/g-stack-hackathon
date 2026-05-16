@@ -1,17 +1,15 @@
 ---
 name: ios-perf-trace
-description: Capture an Instruments trace, summarize hotspots / allocations / energy events.
-status: draft
-version: 0.1
+description: Capture an Instruments trace and summarize hotspots, allocations, or energy events per template.
 ---
 
 # /ios-perf-trace
 
 ## When to invoke
 
-When a flow is slow, drains battery, hangs the main thread, or holds onto
-memory. Specifically: a build is green, tests pass, the screen looks right,
-but the *experience* is bad. Also as a baseline-capture before a
+When a flow is slow, drains battery, hangs the main thread, or holds
+onto memory. Specifically: build is green, tests pass, the screen looks
+right, but the *experience* is bad. Also as a baseline-capture before a
 performance-sensitive refactor, so the next run has a comparison point.
 
 Wrong call as a first probe — most "slow" reports turn out to be "the
@@ -37,7 +35,7 @@ Optional:
   `gstack-ios/.cache/traces/<bundle_id>-<template>-<ts>.trace`.
 
 Assumes:
-- Xcode + `xctrace` on PATH (`xcrun xctrace version`).
+- `xctrace` on PATH (`xcrun xctrace version`).
 - For a real device target, the device is paired and trusted.
 
 ## Procedure
@@ -53,7 +51,6 @@ Assumes:
      --output "$out" \
      <attach_or_launch_args>
    ```
-   This writes a `.trace` bundle to `$out`.
 3. **Export structured data:**
    ```
    xcrun xctrace export \
@@ -62,13 +59,12 @@ Assumes:
               @schema="allocations" or @schema="energy-usage"]' \
      --output /tmp/trace-export.xml
    ```
-   Parse the XML by schema. The export is verbose and template-dependent;
-   normalise into a common summary shape (see Outputs).
+   Parse the XML by schema. Normalise into a common summary shape.
 4. **Summarise per template:**
-   - **Time Profiler:** top 10 symbols by self-time and by inclusive-time;
-     main-thread hangs > 250ms with stack trace; total CPU time.
+   - **Time Profiler:** top 10 symbols by self-time and inclusive-time;
+     main-thread hangs > 250ms with stack; total CPU time.
    - **Allocations:** total allocs, peak heap, top 10 allocation sites,
-     persistent allocations at end (= candidate leaks).
+     persistent allocations at end (candidate leaks).
    - **Energy Log:** wakeups/s, CPU active %, network bytes, location
      ticks. Anything > Apple's "thermal good" thresholds gets flagged.
    - **Hangs:** every hang ≥ 250ms with stack.
@@ -80,7 +76,7 @@ Report (`gstack-ios/.cache/ios-perf-trace-<ts>.json`):
 ```json
 {
   "skill": "ios-perf-trace", "version": "0.1",
-  "target": "io.vulturelabs.healthsyncs",
+  "target": "com.example.app",
   "template": "Time Profiler",
   "duration_s": 30, "device": "iPhone 15 (UDID)",
   "trace_path": "<abs>",
@@ -91,7 +87,8 @@ Report (`gstack-ios/.cache/ios-perf-trace-<ts>.json`):
          "inclusive_ms": 4800, "thread": "main"}
       ],
       "main_thread_hangs": [
-        {"start_s": 12.4, "duration_ms": 380, "top_frame": "JSONSerialization.data"}
+        {"start_s": 12.4, "duration_ms": 380,
+         "top_frame": "JSONSerialization.data"}
       ]
     }
   },
@@ -103,34 +100,27 @@ Report (`gstack-ios/.cache/ios-perf-trace-<ts>.json`):
 }
 ```
 
-`alerts` is the actionable distillation — caller files these as REFINEMENTS.
+`alerts` is the actionable distillation — caller files these as issues.
 
-Side effects: `.trace` bundle (large, gigabytes possible) under
-`gstack-ios/.cache/traces/`. Already gitignored via the `.cache/` rule.
+**Side effects:** `.trace` bundle (large, gigabytes possible) under
+`gstack-ios/.cache/traces/`. Gitignored.
 
 ## Verification
 
-- **Positive:** `ok: true` AND `summary.template_specific` is non-empty
-  AND `trace_path` is a readable `.trace` bundle.
-- **Negative:** `xctrace` errors surface verbatim — common: "could not
-  attach: process not found" (the bundle ID isn't running), "trace
-  template not found".
+- **Positive:** `ok: true` AND `summary.template_specific` non-empty AND
+  `trace_path` is a readable `.trace` bundle.
+- **Negative:** `xctrace` errors surface verbatim. Common: "could not
+  attach: process not found" (bundle ID isn't running), "trace template
+  not found".
 - **Anti-noise:** alerts are gated on per-template thresholds; an
   empty-alerts report on a hot screen means the thresholds are too loose
-  (which is a skill bug, not a project bug).
+  (skill bug, not project bug).
 
 ## Composition
 
 - **Upstream:** `/ios-simctl boot/install/launch` (for the launchable
   target).
-- **Downstream:** REFINEMENT entries describing each alert. Pair with
-  `/ios-test` if the perf issue can be regression-pinned.
-- **Pairs with:** `/ios-visual-critique` (low FPS often shows up as visual
-  artefacts in screenshots taken at the same moment).
-
-## Dogfood log
-
-*(none yet. Likely first dogfood: trace health-sync's `syncAll` on launch
-with Allocations template — the README hints at a "phone literally warms
-up" condition before the observer throttle was added; expect a finding
-around HK observer fan-out.)*
+- **Downstream:** issues describing each alert. Pair with `/ios-test`
+  if the perf issue can be regression-pinned.
+- **Pairs with:** `/ios-visual-critique` — low FPS often shows up as
+  visual artefacts in screenshots taken at the same moment.
