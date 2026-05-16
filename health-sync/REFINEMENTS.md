@@ -28,7 +28,7 @@ sketch may be deferred until the right skill exists to refine it.
 
 - **Surfaced by:** manual code-walk during iteration 1 (motivating case for
   the planned `/ios-wiring-check` skill, BACKLOG #8).
-- **Status:** open
+- **Status:** wontfix (Watch target removed in 91dc238 — `Shared/WCSessionBridge.swift` and the entire `HealthSyncWatch/` directory deleted; phone↔watch wiring is no longer in scope.)
 - **Severity:** bug
 - **Where:** `Shared/WCSessionBridge.swift:21` (definition);
   `HealthSync/HealthSyncManager.swift` (no call site).
@@ -64,7 +64,7 @@ verification is what motivates `/ios-watch-pair`.
 
 - **Surfaced by:** `/ios-build` scheme-discovery step (procedure step 3),
   iteration 1.
-- **Status:** open
+- **Status:** fixed (this commit) — `HealthSyncWidget` scheme added to `project.yml`; `xcodegen generate` now emits it. `xcodebuild -list` returns two schemes (`HealthSync` and `HealthSyncWidget`).
 - **Severity:** dx
 - **Where:** `health-sync/project.yml:82-97` (the `schemes:` block).
 
@@ -91,3 +91,77 @@ Add a `HealthSyncWidget` entry to the `schemes:` block in `project.yml`, with
 `xcodegen generate` (verifies REFINEMENT will pair with `/ios-xcodegen` skill
 work). Confirm `xcodebuild -list` now shows three schemes. No code changes
 required.
+
+---
+
+## REFINEMENT-003 — `PilotSyncTransport.ping()` never probed the peer
+
+- **Surfaced by:** manual run-through of the Activity tab ("Ping peer" button
+  produced no visible result).
+- **Status:** fixed (this commit).
+- **Severity:** bug
+- **Where:** `HealthSync/PilotSyncTransport.swift:14-16` (old `ping()`).
+
+### Description
+
+The Pilot transport's `ping()` returned `PilotBoot.shared.isReady` without
+ever dialing the peer. `HealthSyncManager.pingServer()` then set
+`serverReachable` to that boolean and only recorded an activity event when
+the value transitioned, so a manual tap on **Ping peer** in Activity logged
+nothing if the daemon was already running — the user concluded the button
+was broken.
+
+### Why it matters
+
+The whole point of "Ping peer" is to *confirm overlay reachability before
+trusting Pilot for a sync*. The previous behaviour answered "is the daemon
+running locally?", a distinct question already shown by the trust chip in
+the Status hero. Sending an envelope without the peer probe risked a
+30-second `sendDataExchange` timeout instead of a fast "peer unreachable"
+flag.
+
+### Fix sketch
+
+`ping()` now `await`s `PilotBoot.shared.pingOnce()` (dials port 7,
+PortEcho) and returns `lastPingOK && isReady`. `pingServer` gains a
+`userInitiated: Bool = false` parameter — when true (Activity / Settings
+taps) it records an event every time so the user sees their tap landed;
+internal callers (launch, BG, settings save) keep the transition-only
+logging.
+
+---
+
+## REFINEMENT-004 — No manual deep-backfill path
+
+- **Surfaced by:** user request after first install: "How do we backfill the
+  full history once after a reinstall?"
+- **Status:** fixed (this commit).
+- **Severity:** polish (workaround was "delete + reinstall the app and hope
+  observers catch up").
+- **Where:** `HealthSync/HealthSyncManager.swift:294-330` (`syncAll`).
+
+### Description
+
+Every sync — manual, observer-driven, BG-task — used the same 30-day rolling
+cutoff, and the per-type HK anchor persisted across reinstalls (via
+UserDefaults). After a server rebuild or a stale anchor situation, there
+was no in-app path to re-walk a wider window: the anchor was already past
+the new cutoff, so a wider predicate produced zero rows.
+
+### Why it matters
+
+The 30-day default is right for steady-state sync, but recovery cases
+(server data lost, fresh device with same iCloud account, "I want last
+year of HRV trends in this dashboard") had no in-app affordance. Pulling
+through the Settings "Reset device ID" hatch worked by accident but reset
+unrelated state.
+
+### Fix sketch
+
+`syncAll(reason:backfillDays:resetAnchors:)` overload takes a per-run
+override of the cutoff and an opt-in anchor wipe. The Activity tab grows
+a second button — **Full backfill** — under the existing Sync section,
+gated by a confirmation dialog that names the window in days
+(`deepBackfillWindowDays = 365`). One-shot: after the run, the active
+window snaps back to the 30-day default.
+

@@ -11,8 +11,13 @@ struct PilotSyncTransport: SyncTransport {
     let peerAddress: String
     let peerNodeID: UInt32
 
+    /// Dial the peer's echo port (7) via `PilotBoot.pingOnce`, then surface
+    /// the result. Returning `isReady` alone — the previous behaviour — said
+    /// nothing about whether the peer was actually reachable, so the
+    /// "Ping peer" button looked broken (no state change after a tap).
     func ping() async -> Bool {
-        await MainActor.run { PilotBoot.shared.isReady }
+        await PilotBoot.shared.pingOnce()
+        return await MainActor.run { PilotBoot.shared.lastPingOK && PilotBoot.shared.isReady }
     }
 
     func ingest(samples: [[String: Any]], metadata: [String: Any]?) async throws -> IngestResult {

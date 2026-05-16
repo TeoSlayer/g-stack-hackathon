@@ -185,21 +185,37 @@ private struct WarningRow: View {
 private struct ActivityAndControlsView: View {
     @EnvironmentObject var manager: HealthSyncManager
     @ObservedObject private var pilot = PilotBoot.shared
+    @State private var confirmDeepBackfill = false
     var body: some View {
         List {
-            Section("Sync (\(manager.transportKind.displayName))") {
+            Section {
                 Button {
                     Task { await manager.syncAll(reason: "manual") }
                 } label: {
                     HStack {
                         Label("Sync now", systemImage: "arrow.clockwise")
                         Spacer()
+                        Text("\(HealthSyncManager.backfillWindowDays) d")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
                         if manager.isWorking { ProgressView().controlSize(.small) }
                     }
                 }
                 .disabled(manager.isWorking || !canSync)
                 Button {
-                    Task { await manager.pingServer() }
+                    confirmDeepBackfill = true
+                } label: {
+                    HStack {
+                        Label("Full backfill…", systemImage: "arrow.counterclockwise.circle")
+                        Spacer()
+                        Text("\(HealthSyncManager.deepBackfillWindowDays) d")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(manager.isWorking || !canSync)
+                Button {
+                    Task { await manager.pingServer(userInitiated: true) }
                 } label: {
                     Label("Ping \(pingTargetName)", systemImage: "wave.3.right")
                 }
@@ -209,6 +225,25 @@ private struct ActivityAndControlsView: View {
                         .font(.footnote).foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+            } header: {
+                Text("Sync (\(manager.transportKind.displayName))")
+            } footer: {
+                Text("**Sync now** ships only samples newer than the per-type anchor. **Full backfill** resets all anchors and re-walks the last \(HealthSyncManager.deepBackfillWindowDays) days — useful after a reinstall or a server rebuild.")
+                    .font(.caption2)
+            }
+            .confirmationDialog("Run a full \(HealthSyncManager.deepBackfillWindowDays)-day backfill?",
+                                isPresented: $confirmDeepBackfill,
+                                titleVisibility: .visible) {
+                Button("Re-walk \(HealthSyncManager.deepBackfillWindowDays) days") {
+                    Task {
+                        await manager.syncAll(reason: "manual-backfill",
+                                              backfillDays: HealthSyncManager.deepBackfillWindowDays,
+                                              resetAnchors: true)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will resend every sample from the last \(HealthSyncManager.deepBackfillWindowDays) days. Expect a few minutes of heavy network use on Watch + iPhone.")
             }
             Section("Recent events") {
                 if manager.recentSyncs.isEmpty && manager.isWorking {

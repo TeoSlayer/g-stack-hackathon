@@ -162,6 +162,17 @@ final class HealthSyncManager: ObservableObject {
     /// full quality; the heatmap + CUSUM grow forward as new samples arrive.
     static let backfillWindowDays: Int = 30
 
+    /// Window the user gets when they pick "Full backfill" from the manual
+    /// sync menu — one year covers seasonality, gives every model enough room
+    /// to train its baseline, and stays under the Pilot 60-KB-per-envelope
+    /// cap since `chunkSize` paging is unaffected.
+    static let deepBackfillWindowDays: Int = 365
+
+    /// Per-run override for `anchoredQuery`'s cutoff. Reset to nil after each
+    /// `syncAll` so a deep-backfill sweep doesn't accidentally affect the next
+    /// observer-driven incremental sync.
+    private var activeBackfillDays: Int = HealthSyncManager.backfillWindowDays
+
     static func defaultDeviceID() -> String {
         let model = UIDevice.current.model
         let name  = UIDevice.current.name.replacingOccurrences(of: " ", with: "-")
@@ -291,12 +302,28 @@ final class HealthSyncManager: ObservableObject {
     // MARK: sync
 
     /// Sync every known type sequentially. Called from launch, BG refresh, and the UI button.
-    func syncAll(reason: String) async {
-        log.info("syncAll: \(reason)")
+    ///
+    /// - Parameters:
+    ///   - backfillDays: override the rolling 30-day window for this run (e.g.
+    ///     365 from a "Full backfill" tap). Reset to default after this run.
+    ///   - resetAnchors: drop every per-type HK anchor before syncing, forcing
+    ///     `anchoredQuery` to re-walk the full window. Without this, a deep
+    ///     backfill no-ops because the anchor is already past the new cutoff.
+    func syncAll(reason: String,
+                 backfillDays: Int? = nil,
+                 resetAnchors: Bool = false) async {
+        log.info("syncAll: \(reason) (backfillDays=\(backfillDays ?? -1) resetAnchors=\(resetAnchors))")
         isWorking = true
+        activeBackfillDays = backfillDays ?? Self.backfillWindowDays
+        if resetAnchors {
+            resetAllAnchors()
+            recordEvent(kind: "sync", success: true,
+                        message: "anchors reset for deep backfill (\(activeBackfillDays)d)")
+        }
         defer {
             isWorking = false
             currentActivity = "Idle"
+            activeBackfillDays = Self.backfillWindowDays
         }
 
         currentActivity = "Pinging server…"
@@ -520,8 +547,9 @@ final class HealthSyncManager: ObservableObject {
         // ALWAYS clamp queries to the rolling backfill window. Without this,
         // HKAnchoredObjectQuery happily walks back years on a fresh anchor —
         // HeartRate alone can be hundreds of thousands of samples that we
-        // then try to ship one page at a time, taking hours.
-        let cutoff = Date().addingTimeInterval(-Double(Self.backfillWindowDays) * 86_400)
+        // then try to ship one page at a time, taking hours. Window can be
+        // widened per-run (see `syncAll(backfillDays:)`).
+        let cutoff = Date().addingTimeInterval(-Double(activeBackfillDays) * 86_400)
         let predicate = HKQuery.predicateForSamples(
             withStart: cutoff,
             end:       nil,
@@ -554,6 +582,16 @@ final class HealthSyncManager: ObservableObject {
               let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
         else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+
+    /// Wipe every `anchor:<HKTypeIdentifier>` UserDefaults entry. Called by
+    /// deep-backfill syncs so the next anchored query starts from the wider
+    /// cutoff rather than skipping forward from a stale anchor inside it.
+    private func resetAllAnchors() {
+        let defaults = UserDefaults.standard
+        let keys = defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("anchor:") }
+        for k in keys { defaults.removeObject(forKey: k) }
+        log.info("reset \(keys.count) HK anchors for deep backfill")
     }
 
     /// `nonisolated` so we can call it from a background queue. Filters NaN/Inf
@@ -606,11 +644,19 @@ final class HealthSyncManager: ObservableObject {
         return dict
     }
 
-    func pingServer() async {
+    /// `userInitiated: true` for taps from Activity / Settings — emits an
+    /// event every time so the user sees their tap landed. Background callers
+    /// (launch, BG refresh, ensureRunning) still only log on state transitions
+    /// to avoid spamming the activity log every 60 s.
+    func pingServer(userInitiated: Bool = false) async {
         let ok = await transport.ping()
         let wasReachable = serverReachable
         serverReachable = ok
-        if ok && !wasReachable {
+        if userInitiated {
+            recordEvent(kind: "ping", success: ok,
+                        message: ok ? "\(transportKind.displayName) reachable"
+                                    : "\(transportKind.displayName) unreachable")
+        } else if ok && !wasReachable {
             recordEvent(kind: "ping", success: true,
                         message: "\(transportKind.displayName) reachable")
         } else if !ok && wasReachable {

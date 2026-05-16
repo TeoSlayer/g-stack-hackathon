@@ -76,3 +76,11 @@ schemes:
       config: Debug
     archive:
       config: Release
+  HealthSyncWidget:
+    build:
+      targets:
+        HealthSyncWidget: all
+    run:
+      config: Debug
+    archive:
+      config: Release
