@@ -120,6 +120,7 @@ private struct ModelCard: View {
         case .burnoutCUSUM:     return InfoContent.burnoutCUSUM
         case .bedtimeDrift:     return InfoContent.bedtimeDrift
         case .kalmanHRV:        return InfoContent.kalmanHRV
+        default:                return nil
         }
     }
 }

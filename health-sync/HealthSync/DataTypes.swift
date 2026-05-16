@@ -22,7 +22,8 @@ enum HKTypes {
         .appleStandTime,
         .vo2Max,
         .bodyMass,
-        .timeInDaylight,   // iOS 17+: Apple Watch infers via UV / ambient light + GPS
+        .timeInDaylight,              // iOS 17+: Apple Watch infers via UV / ambient light + GPS
+        .environmentalAudioExposure,  // dBASPL, used for acoustic load metric
     ]
 
     static let categoryIdentifiers: [HKCategoryTypeIdentifier] = [
@@ -93,6 +94,8 @@ enum HKTypes {
              HKQuantityTypeIdentifier.appleStandTime.rawValue,
              HKQuantityTypeIdentifier.timeInDaylight.rawValue:
             return HKUnit.minute()
+        case HKQuantityTypeIdentifier.environmentalAudioExposure.rawValue:
+            return HKUnit(from: "dBASPL")
         case HKQuantityTypeIdentifier.vo2Max.rawValue:
             return HKUnit(from: "ml/kg*min")
         case HKQuantityTypeIdentifier.bodyMass.rawValue:

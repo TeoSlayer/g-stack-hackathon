@@ -26,24 +26,57 @@ struct ReadinessReading: Codable, Equatable {
 
 enum Readiness {
 
-    /// Compute the reading from HealthKit. Reads only — no writes, no side effects.
-    /// Safe to call from any actor; the HKHealthStore is thread-safe.
-    static func compute(store: HKHealthStore) async -> ReadinessReading {
+    /// Compute the reading from HealthKit.
+    /// When 30-day series are available in the cache, uses the spec's weighted
+    /// z-score formula: 0.4·z(HRV) − 0.3·z(RHR) + 0.3·z(sleep).
+    /// Falls back to HRV-vs-baseline ratio when cache is absent.
+    static func compute(store: HKHealthStore,
+                        cache: [MetricKind: MetricSeries] = [:]) async -> ReadinessReading {
         let now = Date()
+
+        // Weighted z-score path — requires ≥7 days in each series.
+        if let hrvSeries  = cache[.hrv],  hrvSeries.history.count  >= 7,
+           let rhrSeries  = cache[.rhr],  rhrSeries.history.count  >= 7,
+           let sleepSeries = cache[.sleep], sleepSeries.history.count >= 7 {
+            let hrvVals   = hrvSeries.history.map(\.value)
+            let rhrVals   = rhrSeries.history.map(\.value)
+            let sleepVals = sleepSeries.history.map(\.value)
+
+            let zHRV   = zscore30(hrvVals)
+            let zRHR   = zscore30(rhrVals)
+            let zSleep = zscore30(sleepVals)
+
+            let raw = 0.4 * zHRV - 0.3 * zRHR + 0.3 * zSleep
+            // Normalise: raw ≈ ±1.5 in practice; map to [1, 100] around 50.
+            let score = max(1, min(100, Int((50 + raw * 25).rounded())))
+
+            let (band, advice): (ReadinessReading.Band, String) = {
+                switch score {
+                case ..<40:  return (.depleted,  "Run-down — your nervous system is asking for rest today.")
+                case ..<65:  return (.moderate,  "Around baseline. Normal day, train as planned.")
+                default:     return (.recovered, "Recovered. Push hard if you want to.")
+                }
+            }()
+
+            let todayHRV = hrvVals.last
+            let baseMean = hrvVals.dropLast().reduce(0, +) / Double(max(1, hrvVals.count - 1))
+            let pct = todayHRV.map { $0 / baseMean }
+            return ReadinessReading(todayHRV: todayHRV, baselineHRV: baseMean,
+                                    percentOfBaseline: pct,
+                                    score: score, band: band, advice: advice, asOf: now)
+        }
+
+        // Fallback: simple HRV-vs-7d-baseline ratio.
         async let today    = lastNightHRV(store: store, anchor: now)
         async let baseline = baselineHRV(store: store, days: 7, anchor: now)
-
         let t = await today
         let b = await baseline
 
         guard let t, let b, b > 0 else {
             var r = ReadinessReading.unknown
-            r.todayHRV = t
-            r.baselineHRV = b
-            r.asOf = now
+            r.todayHRV = t; r.baselineHRV = b; r.asOf = now
             return r
         }
-
         let pct = t / b
         let (band, advice): (ReadinessReading.Band, String) = {
             switch pct {
@@ -52,13 +85,18 @@ enum Readiness {
             default:       return (.recovered, "Recovered. Push hard if you want to.")
             }
         }()
-
-        // Map pct→score so 1.0 = 75, 0.7 ≈ 30, 1.3+ ≈ 100. Friendlier than a raw %.
         let score = max(0, min(100, Int((pct * 75).rounded())))
-        return ReadinessReading(
-            todayHRV: t, baselineHRV: b, percentOfBaseline: pct,
-            score: score, band: band, advice: advice, asOf: now
-        )
+        return ReadinessReading(todayHRV: t, baselineHRV: b, percentOfBaseline: pct,
+                                score: score, band: band, advice: advice, asOf: now)
+    }
+
+    // z-score of last value vs full window mean/stddev.
+    private static func zscore30(_ xs: [Double]) -> Double {
+        guard xs.count >= 2, let last = xs.last else { return 0 }
+        let m = xs.reduce(0, +) / Double(xs.count)
+        let v = xs.map { ($0 - m) * ($0 - m) }.reduce(0, +) / Double(xs.count - 1)
+        let s = sqrt(v)
+        return s > 0 ? (last - m) / s : 0
     }
 
     // MARK: - private HK queries

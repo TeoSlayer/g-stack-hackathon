@@ -1,0 +1,599 @@
+{
+  "version": "1.1.0",
+  "wire_ground_truth": {
+    "timestamps": "Unix epoch float, fields named start_utc / end_utc",
+    "hr_unit": "count/min",
+    "sleep_category_values": {"0":"inBed","1":"asleep","2":"awake","3":"asleepCore","4":"asleepDeep","5":"asleepREM"},
+    "workout_fields": ["uuid","activity_type","activity_name","start_utc","end_utc","duration_s","total_energy_kcal","total_distance_m"],
+    "sample_discriminator": "kind: quantity | category",
+    "gps": "route_chunk envelopes, separate from workout header, join on workout_uuid",
+    "pilot_gzip_ceiling_kb": 65,
+    "pacing_s": 1.5
+  },
+  "metrics": [
+    {
+      "id": 1,
+      "name": "HRV Coefficient of Variation",
+      "short": "HRV-CV",
+      "category": "autonomic",
+      "wire_inputs": [{"type":"heartRateVariabilitySDNN","kind":"quantity","unit":"ms"}],
+      "formula": "hrv_cv = stddev(value, window=7d) / avg(value, window=7d)",
+      "sql": "STDDEV_SAMP(value) OVER w7 / AVG(value) OVER w7",
+      "output": {"name":"hrv_cv","unit":"ratio"},
+      "alert": "hrv_cv > 0.3",
+      "purpose": "ANS stability. High = nervous system swinging erratically between stress and recovery.",
+      "grain": "daily, nightly samples only"
+    },
+    {
+      "id": 2,
+      "name": "Acute-to-Chronic Workload Ratio",
+      "short": "ACWR",
+      "category": "autonomic",
+      "wire_inputs": [{"type":"activeEnergyBurned","kind":"quantity","unit":"kcal"}],
+      "formula": "acwr = ewma(daily_kcal, span=7) / ewma(daily_kcal, span=28)",
+      "ewma_lambda": {"acute":0.2857,"chronic":0.0741},
+      "output": {"name":"acwr","unit":"ratio"},
+      "alert": "acwr > 1.5 (danger) | acwr < 0.8 (detraining)",
+      "purpose": "Injury prevention. Flags recent load spikes above chronic baseline.",
+      "grain": "daily"
+    },
+    {
+      "id": 3,
+      "name": "Training Monotony Index",
+      "short": "Monotony",
+      "category": "autonomic",
+      "wire_inputs": [{"type":"activeEnergyBurned","kind":"quantity","unit":"kcal"}],
+      "formula": "monotony = avg(daily_kcal, 7d) / stddev(daily_kcal, 7d)",
+      "output": {"name":"monotony_index","unit":"ratio"},
+      "alert": "monotony_index > 2.0",
+      "purpose": "Detects same-intensity training every day. High = plateau or overuse risk.",
+      "grain": "daily"
+    },
+    {
+      "id": 4,
+      "name": "Nightly RHR Dip Amplitude",
+      "short": "RHR Dip",
+      "category": "autonomic",
+      "wire_inputs": [
+        {"type":"heartRate","kind":"quantity","unit":"count/min"},
+        {"type":"sleepAnalysis","kind":"category"}
+      ],
+      "formula": "dip = (avg_hr(08:00–22:00 local) - min_hr(start_utc of inBed to end_utc of last asleep)) / avg_hr(08:00–22:00 local)",
+      "output": {"name":"rhr_dip_amplitude","unit":"ratio"},
+      "alert": "rhr_dip_amplitude < 0.05",
+      "normal_range": "0.10–0.20",
+      "purpose": "Flat nocturnal dip = alcohol, late eating, or acute illness.",
+      "grain": "nightly"
+    },
+    {
+      "id": 5,
+      "name": "RHR Trajectory Slope",
+      "short": "RHR Slope",
+      "category": "autonomic",
+      "wire_inputs": [{"type":"restingHeartRate","kind":"quantity","unit":"count/min"}],
+      "formula": "slope = cov(day_index_0_to_6, rhr_value) / var(day_index_0_to_6) over 7d rolling window",
+      "sql": "REGR_SLOPE(value, day_index) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)",
+      "output": {"name":"rhr_slope_bpm_per_day","unit":"bpm/day"},
+      "alert": "rhr_slope_bpm_per_day > 0 for 3+ consecutive days",
+      "purpose": "Leading indicator of accumulating fatigue or illness before subjective symptoms appear.",
+      "grain": "daily"
+    },
+    {
+      "id": 6,
+      "name": "Heart Rate Recovery Decay",
+      "short": "HRR",
+      "category": "autonomic",
+      "wire_inputs": [
+        {"type":"heartRate","kind":"quantity","unit":"count/min"},
+        {"object":"workout","field":"end_utc"}
+      ],
+      "formula": "hrr = max(hr during workout) - hr_sample_at(workout.end_utc + 60s)",
+      "output": {"name":"hrr_bpm","unit":"bpm"},
+      "alert": "hrr_bpm < 12",
+      "purpose": "Fitness proxy. Low HRR = sympathetic dominance or overtraining.",
+      "notes": "Requires HR sample captured in the 60s window after workout.end_utc. Missing if watch removed.",
+      "grain": "per workout"
+    },
+    {
+      "id": 7,
+      "name": "Cardiovascular Drift",
+      "short": "CV Drift",
+      "category": "autonomic",
+      "wire_inputs": [
+        {"type":"heartRate","kind":"quantity","unit":"count/min"},
+        {"object":"workout","fields":["start_utc","end_utc","duration_s","activity_name","uuid"]},
+        {"object":"route_chunk","note":"separate envelope, join on workout_uuid, derive speed = dist_delta_m / time_delta_s per point"}
+      ],
+      "formula": [
+        "q1_end = workout.start_utc + workout.duration_s * 0.25",
+        "q4_start = workout.start_utc + workout.duration_s * 0.75",
+        "drift = avg_hr(q4_start, workout.end_utc) - avg_hr(workout.start_utc, q1_end)"
+      ],
+      "filter": "stddev(gps_speed) / avg(gps_speed) < 0.10 AND activity_name IN ('running','cycling')",
+      "output": {"name":"cv_drift_bpm","unit":"bpm"},
+      "alert": "cv_drift_bpm > 10",
+      "purpose": "Dehydration or fatigue during steady-state cardio.",
+      "notes": "Skip if route_chunks not received or speed variance filter fails.",
+      "grain": "per workout"
+    },
+    {
+      "id": 8,
+      "name": "Orthostatic Stress Proxy",
+      "short": "Morning Surge",
+      "category": "autonomic",
+      "wire_inputs": [
+        {"type":"heartRate","kind":"quantity","unit":"count/min"},
+        {"type":"sleepAnalysis","kind":"category","filter":"category_value=5 (asleepREM) or any asleep state"}
+      ],
+      "formula": [
+        "wake_utc = max(end_utc of all asleep samples for the night)",
+        "surge = max_hr(wake_utc, wake_utc + 600s) - avg_hr(wake_utc - 7200s, wake_utc)"
+      ],
+      "output": {"name":"morning_surge_bpm","unit":"bpm"},
+      "alert": "morning_surge_bpm > 40",
+      "purpose": "Detects poor recovery, dehydration, or high cortisol.",
+      "grain": "daily"
+    },
+    {
+      "id": 9,
+      "name": "Sleep Regularity Index",
+      "short": "SRI",
+      "category": "sleep",
+      "wire_inputs": [{"type":"sleepAnalysis","kind":"category"}],
+      "formula": [
+        "Build per-minute binary vector for each day: 1 if any asleep sample covers that minute, 0 otherwise.",
+        "matching_mins = count(minutes where vector[day_n][t] == vector[day_n-1][t])",
+        "sri = matching_mins / 1440"
+      ],
+      "output": {"name":"sri","unit":"ratio 0-1"},
+      "alert": "sri < 0.70",
+      "purpose": "Sleep schedule consistency. Low SRI predicts metabolic disruption.",
+      "grain": "daily, requires prior day"
+    },
+    {
+      "id": 10,
+      "name": "Sleep Architecture Efficiency",
+      "short": "Sleep Efficiency",
+      "category": "sleep",
+      "wire_inputs": [{"type":"sleepAnalysis","kind":"category"}],
+      "formula": [
+        "deep_rem_s = sum(end_utc - start_utc for samples where category_value IN (4,5))",
+        "in_bed_s = sum(end_utc - start_utc for samples where category_value == 0)",
+        "efficiency = deep_rem_s / in_bed_s"
+      ],
+      "output": {"name":"sleep_architecture_efficiency","unit":"ratio 0-1"},
+      "alert": "sleep_architecture_efficiency < 0.40",
+      "purpose": "Penalizes time-in-bed without restorative sleep. Ignores generic asleep (category_value=1).",
+      "notes": "Deep/REM detection unreliable on pre-Series 9. Tag device in pipeline.",
+      "grain": "nightly"
+    },
+    {
+      "id": 11,
+      "name": "Sleep Debt Accumulator",
+      "short": "Sleep Debt",
+      "category": "sleep",
+      "wire_inputs": [{"type":"sleepAnalysis","kind":"category"}],
+      "formula": [
+        "actual_sleep_s = sum(end_utc - start_utc for samples where category_value IN (1,3,4,5))",
+        "daily_deficit_min = max(0, 480 - actual_sleep_s/60)",
+        "debt[day] = daily_deficit_min + debt[day-1] * 0.90"
+      ],
+      "output": {"name":"sleep_debt_min","unit":"minutes"},
+      "alert": "sleep_debt_min > 240",
+      "purpose": "Running decayed sleep deficit. 10%/day decay weights recent nights more heavily.",
+      "grain": "daily"
+    },
+    {
+      "id": 12,
+      "name": "Sleep Onset Latency Spike",
+      "short": "SOL Spike",
+      "category": "sleep",
+      "wire_inputs": [{"type":"sleepAnalysis","kind":"category"}],
+      "formula": [
+        "inBed_start = min(start_utc for samples where category_value == 0)",
+        "first_asleep_start = min(start_utc for samples where category_value IN (1,3,4,5))",
+        "sol_min = (first_asleep_start - inBed_start) / 60",
+        "sol_zscore = (sol_min - avg(sol_min, 30d)) / stddev(sol_min, 30d)"
+      ],
+      "output": {"name":"sol_zscore","unit":"z-score"},
+      "alert": "sol_zscore > 2.0",
+      "purpose": "Detects difficulty falling asleep. Correlate with metric 16 (blue light) for causation.",
+      "grain": "nightly"
+    },
+    {
+      "id": 13,
+      "name": "Wakefulness After Sleep Onset",
+      "short": "WASO",
+      "category": "sleep",
+      "wire_inputs": [{"type":"sleepAnalysis","kind":"category"}],
+      "formula": [
+        "first_asleep_utc = min(start_utc for samples where category_value IN (1,3,4,5))",
+        "last_asleep_end_utc = max(end_utc for samples where category_value IN (1,3,4,5))",
+        "waso_s = sum(end_utc - start_utc for samples where category_value == 2 AND start_utc >= first_asleep_utc AND end_utc <= last_asleep_end_utc)",
+        "waso_min = waso_s / 60"
+      ],
+      "output": {"name":"waso_min","unit":"minutes"},
+      "alert": "waso_min > 30",
+      "purpose": "Intra-sleep fragmentation. Awake segments strictly between first and last asleep markers.",
+      "grain": "nightly"
+    },
+    {
+      "id": 14,
+      "name": "Temperature Rhythm Phase Shift",
+      "short": "Temp Phase Shift",
+      "category": "sleep",
+      "wire_inputs": [{"type":"appleSleepingWristTemperature","kind":"quantity","unit":"degC","requires":"Series 8+"}],
+      "formula": [
+        "today_peak_utc = start_utc of max(value) sample in today's 24h window",
+        "today_peak_min_since_midnight = (today_peak_utc % 86400) / 60",
+        "baseline_peak = avg(peak_min_since_midnight, rolling 14d)",
+        "phase_shift_hours = (today_peak_min_since_midnight - baseline_peak) / 60"
+      ],
+      "output": {"name":"temp_phase_shift_hours","unit":"hours"},
+      "alert": "abs(temp_phase_shift_hours) > 1.5",
+      "purpose": "Circadian misalignment from travel or schedule disruption.",
+      "notes": "Gate on device capability. No data = skip metric.",
+      "grain": "daily"
+    },
+    {
+      "id": 15,
+      "name": "Social Jetlag Index",
+      "short": "SJI",
+      "category": "sleep",
+      "wire_inputs": [{"type":"sleepAnalysis","kind":"category"}],
+      "formula": [
+        "inBed_start_utc = min(start_utc for category_value==0 per night)",
+        "last_asleep_end_utc = max(end_utc for category_value IN (1,3,4,5) per night)",
+        "midpoint_utc = inBed_start_utc + (last_asleep_end_utc - inBed_start_utc) / 2",
+        "midpoint_min_since_midnight = (midpoint_utc % 86400) / 60",
+        "sji_hours = abs(avg(midpoint, Sat+Sun nights) - avg(midpoint, Mon-Fri nights)) / 60"
+      ],
+      "output": {"name":"sji_hours","unit":"hours"},
+      "alert": "sji_hours > 1.0",
+      "purpose": "Metabolic disruption from weekend vs weekday sleep drift.",
+      "grain": "weekly, requires >=2 weekend + >=2 weekday nights"
+    },
+    {
+      "id": 16,
+      "name": "Pre-Bed Digital Stimulation",
+      "short": "Blue Light Penalty",
+      "category": "behavioral",
+      "wire_inputs": [
+        {"source":"ScreenTime API","note":"NOT in wire envelope. Requires DeviceActivityReport framework separately."},
+        {"type":"sleepAnalysis","kind":"category","field":"inBed start_utc"}
+      ],
+      "formula": [
+        "inBed_start_utc = min(start_utc for category_value==0 for the night)",
+        "window_start_utc = inBed_start_utc - 7200",
+        "blue_light_penalty_min = sum(screen_time_min where session overlaps [window_start_utc, inBed_start_utc])"
+      ],
+      "output": {"name":"blue_light_penalty_min","unit":"minutes"},
+      "alert": "blue_light_penalty_min > 30",
+      "purpose": "Pre-sleep screen exposure. Correlate directly with sol_zscore (metric 12).",
+      "grain": "nightly"
+    },
+    {
+      "id": 17,
+      "name": "Acoustic Allostatic Load",
+      "short": "Acoustic Load",
+      "category": "behavioral",
+      "wire_inputs": [{"type":"environmentalAudioExposure","kind":"quantity","unit":"dBASPL"}],
+      "formula": [
+        "threshold_db = 75",
+        "sample_duration_hours = (end_utc - start_utc) / 3600",
+        "load = sum((value - 75) * sample_duration_hours for samples where value > 75)"
+      ],
+      "output": {"name":"acoustic_load_db_hours","unit":"dB·hours"},
+      "alert": "acoustic_load_db_hours > personal_90th_percentile_30d",
+      "purpose": "Cumulative harmful noise. High load days = high cortisol days regardless of subjective state.",
+      "grain": "daily"
+    },
+    {
+      "id": 18,
+      "name": "Sensory Overload Index",
+      "short": "SOI",
+      "category": "behavioral",
+      "wire_inputs": [
+        {"source":"ScreenTime API"},
+        {"type":"environmentalAudioExposure","kind":"quantity"},
+        {"source":"daylight_min proxy: HKQuantityTypeIdentifierUVExposure or GPS + solar elevation API"}
+      ],
+      "formula": [
+        "light_deficit = max(0, 120 - daylight_min)",
+        "soi = zscore(total_screen_time_min, 30d) + zscore(acoustic_load_db_hours, 30d) + zscore(light_deficit, 30d)"
+      ],
+      "output": {"name":"sensory_overload_index","unit":"composite z-score"},
+      "alert": "sensory_overload_index > 3.0",
+      "purpose": "Mental burnout from environment even when physical metrics look fine.",
+      "grain": "daily"
+    },
+    {
+      "id": 19,
+      "name": "Contextual Stress Peak",
+      "short": "CSP",
+      "category": "behavioral",
+      "wire_inputs": [
+        {"type":"heartRate","kind":"quantity","unit":"count/min"},
+        {"type":"stepCount","kind":"quantity"},
+        {"type":"environmentalAudioExposure","kind":"quantity"},
+        {"source":"ScreenTime API"}
+      ],
+      "formula": [
+        "Bucket all samples into 5-min windows by floor(start_utc / 300) * 300",
+        "stress_windows = count(windows where avg_hr > 90 AND sum_steps < 10 AND (avg_noise > 80 OR screen_active == true))"
+      ],
+      "output": {"name":"contextual_stress_peaks","unit":"count/day"},
+      "alert": "contextual_stress_peaks > 6",
+      "purpose": "Sedentary stress events (meetings, traffic, gaming) not caused by exercise.",
+      "grain": "daily"
+    },
+    {
+      "id": 20,
+      "name": "Digital Eye Strain",
+      "short": "Screen Fragmentation",
+      "category": "behavioral",
+      "wire_inputs": [{"source":"ScreenTime API"}],
+      "formula": [
+        "Sort screen sessions by start time",
+        "Split into blocks where gap between consecutive sessions > 300s",
+        "max_block_min = max(sum of session durations within each block) / 60"
+      ],
+      "output": {"name":"max_screen_block_min","unit":"minutes"},
+      "alert": "max_screen_block_min > 60",
+      "purpose": "Longest unbroken screen session. Triggers 20-20-20 rule reminder.",
+      "grain": "daily"
+    },
+    {
+      "id": 21,
+      "name": "Light Deficit Accumulator",
+      "short": "Light Deficit",
+      "category": "behavioral",
+      "wire_inputs": [{"source":"daylight_min proxy: HKQuantityTypeIdentifierUVExposure or GPS+solar-elevation API"}],
+      "formula": [
+        "daily_deficit = max(0, 120 - daylight_min)",
+        "light_debt_min = sum(daily_deficit over rolling 3d window)"
+      ],
+      "output": {"name":"light_debt_min","unit":"minutes"},
+      "alert": "light_debt_min > 120",
+      "purpose": "Cumulative daylight deficit. Suppresses melatonin and sleep pressure.",
+      "grain": "daily, rolling 3d"
+    },
+    {
+      "id": 22,
+      "name": "Sedentary Fragmentation Rate",
+      "short": "SFR",
+      "category": "behavioral",
+      "wire_inputs": [
+        {"type":"appleStandHour","kind":"category"},
+        {"type":"sleepAnalysis","kind":"category"}
+      ],
+      "formula": [
+        "total_sleep_s = sum(end_utc - start_utc for category_value IN (0,1,2,3,4,5))",
+        "awake_hours = (86400 - total_sleep_s) / 3600",
+        "sfr = count(stand_hour samples) / awake_hours"
+      ],
+      "output": {"name":"sfr","unit":"stand events per awake hour"},
+      "alert": "sfr < 0.5",
+      "target": "sfr >= 1.0",
+      "purpose": "Movement distribution through the day. Low = prolonged sitting.",
+      "grain": "daily"
+    },
+    {
+      "id": 23,
+      "name": "Respiratory Rate Baseline Deviation",
+      "short": "RR Deviation",
+      "category": "metabolic",
+      "wire_inputs": [{"type":"respiratoryRate","kind":"quantity","unit":"count/min"}],
+      "formula": [
+        "rr_acute = ewma(value, span=3, lambda=0.500)",
+        "rr_chronic = ewma(value, span=30, lambda=0.0645)",
+        "rr_deviation_brpm = rr_acute - rr_chronic"
+      ],
+      "output": {"name":"rr_deviation_brpm","unit":"brpm"},
+      "alert": "rr_deviation_brpm > 1.5",
+      "priority": "HIGH — most reliable early illness signal. Prioritize in agent prompts.",
+      "purpose": "RR is extremely stable in health. Any deviation flags infection or severe exhaustion.",
+      "grain": "daily, resting or overnight samples preferred"
+    },
+    {
+      "id": 24,
+      "name": "SpO2 Desaturation Density",
+      "short": "SpO2 Density",
+      "category": "metabolic",
+      "wire_inputs": [
+        {"type":"oxygenSaturation","kind":"quantity","unit":"% normalize to 0.0-1.0"},
+        {"type":"sleepAnalysis","kind":"category"}
+      ],
+      "formula": [
+        "sleep_start_utc = min(start_utc for category_value IN (0,1,2,3,4,5))",
+        "sleep_end_utc = max(end_utc for category_value IN (0,1,2,3,4,5))",
+        "desats = count(oxygenSaturation samples where value < 0.94 AND start_utc BETWEEN sleep_start_utc AND sleep_end_utc)",
+        "sleep_hours = (sleep_end_utc - sleep_start_utc) / 3600",
+        "density = desats / sleep_hours"
+      ],
+      "output": {"name":"spo2_desaturation_density","unit":"events/hour"},
+      "alert": "spo2_desaturation_density > 5",
+      "purpose": "Sleep apnea proxy. Only overnight samples count.",
+      "grain": "nightly"
+    },
+    {
+      "id": 25,
+      "name": "Body Mass Volatility",
+      "short": "Mass Volatility",
+      "category": "metabolic",
+      "wire_inputs": [{"type":"bodyMass","kind":"quantity","unit":"kg"}],
+      "formula": "mass_volatility_kg = stddev(value, rolling 7d)",
+      "output": {"name":"mass_volatility_kg","unit":"kg"},
+      "alert": "mass_volatility_kg > 1.5",
+      "purpose": "High week-to-week mass swings = water/glycogen flux, not fat. Prevents misinterpretation.",
+      "grain": "daily, requires >=3 weigh-ins/week for reliability"
+    },
+    {
+      "id": 26,
+      "name": "MET Intensity Minutes",
+      "short": "MET Min",
+      "category": "metabolic",
+      "wire_inputs": [
+        {"object":"workout","fields":["total_energy_kcal","duration_s","start_utc","end_utc"]},
+        {"type":"bodyMass","kind":"quantity","unit":"kg"}
+      ],
+      "formula": [
+        "duration_hours = workout.duration_s / 3600",
+        "met = workout.total_energy_kcal / (body_mass_kg * duration_hours)",
+        "met_minutes += workout.duration_s / 60   if met > 3.0",
+        "Aggregate weekly. WHO target: >= 150 met_minutes/week"
+      ],
+      "output": {"name":"met_intensity_minutes","unit":"minutes"},
+      "alert": "weekly_sum < 150",
+      "purpose": "Translates calorie burn into standardized cardiovascular activity compliance.",
+      "grain": "per workout, aggregate daily and weekly"
+    },
+    {
+      "id": 27,
+      "name": "VO2 Max Moving Derivative",
+      "short": "VO2 Trend",
+      "category": "metabolic",
+      "wire_inputs": [{"type":"vo2Max","kind":"quantity","unit":"mL/kg/min"}],
+      "formula": [
+        "vo2_today = latest value",
+        "vo2_30d_ago = nearest value where start_utc <= (now - 2592000s)",
+        "vo2_derivative = (vo2_today - vo2_30d_ago) / 30"
+      ],
+      "output": {"name":"vo2_derivative_per_day","unit":"mL/kg/min/day"},
+      "alert": "vo2_derivative_per_day < -0.05",
+      "purpose": "Detects active detraining before performance decline is felt.",
+      "notes": "Apple vo2Max is estimated from HR+pace, not lab-measured. Surface caveat in agent output.",
+      "grain": "daily, interpolate between sparse readings"
+    },
+    {
+      "id": 28,
+      "name": "Pacing Efficiency Index",
+      "short": "Pace Efficiency",
+      "category": "metabolic",
+      "wire_inputs": [
+        {"object":"workout","fields":["total_distance_m","total_energy_kcal","activity_name"]},
+        {"object":"route_chunk","note":"separate envelope, join on workout_uuid, required for GPS speed filter only"}
+      ],
+      "formula": [
+        "Filter: activity_name IN ('running') OR activity_name IN ('cycling') — compute separately per type, never mix",
+        "efficiency = total_distance_m / total_energy_kcal"
+      ],
+      "output": {"name":"pacing_efficiency_m_per_kcal","unit":"m/kcal"},
+      "alert": "efficiency < personal_mean_30d - 1_stddev (per activity_name)",
+      "purpose": "Movement economy. Drop in efficiency signals biomechanical fatigue.",
+      "grain": "per workout"
+    },
+    {
+      "id": 29,
+      "name": "NEAT Proxy",
+      "short": "NEAT",
+      "category": "metabolic",
+      "wire_inputs": [
+        {"type":"stepCount","kind":"quantity"},
+        {"type":"activeEnergyBurned","kind":"quantity"},
+        {"object":"workout","fields":["start_utc","end_utc"]}
+      ],
+      "formula": [
+        "neat_steps = sum(stepCount.value) - sum(stepCount.value where sample.start_utc BETWEEN workout.start_utc AND workout.end_utc)",
+        "neat_energy_kcal = sum(activeEnergyBurned.value) - sum(activeEnergyBurned.value where sample.start_utc BETWEEN workout.start_utc AND workout.end_utc)"
+      ],
+      "output": {"name":"neat","fields":{"neat_steps":"integer","neat_energy_kcal":"float"}},
+      "alert": "neat_energy_kcal < personal_mean_30d - 1_stddev on heavy training days",
+      "purpose": "Lifestyle activity outside workouts. Detects training-induced laziness.",
+      "grain": "daily"
+    },
+    {
+      "id": 30,
+      "name": "Daily Exertion Strain (TRIMP Proxy)",
+      "short": "TRIMP",
+      "category": "metabolic",
+      "wire_inputs": [
+        {"type":"heartRate","kind":"quantity","unit":"count/min"},
+        {"object":"workout","fields":["start_utc","end_utc","activity_name"]}
+      ],
+      "formula": [
+        "maxHR = 220 - user_age  (required config per user)",
+        "zone_bounds_pct = {Z1:[0,0.60], Z2:[0.60,0.70], Z3:[0.70,0.80], Z4:[0.80,0.90], Z5:[0.90,1.0]}",
+        "zone_multipliers = {Z1:1.0, Z2:2.0, Z3:3.0, Z4:4.5, Z5:6.0}",
+        "For each 1-min segment within workout window: zone = lookup(avg_hr / maxHR)",
+        "trimp = sum(segment_min * zone_multipliers[zone]) across all workouts"
+      ],
+      "output": {"name":"trimp_score","unit":"TRIMP units"},
+      "alert": "trimp_score > personal_90th_percentile_30d",
+      "purpose": "Single daily strain score (like WHOOP). Integrates duration and intensity across all workouts.",
+      "notes": "Requires user_age or explicit maxHR in user profile config.",
+      "grain": "daily"
+    },
+    {
+      "id": 31,
+      "name": "Systemic Readiness Score",
+      "short": "Readiness",
+      "category": "composite",
+      "depends_on": [1, 5, 10],
+      "wire_inputs": [
+        {"type":"heartRateVariabilitySDNN","kind":"quantity"},
+        {"type":"restingHeartRate","kind":"quantity"},
+        {"type":"sleepAnalysis","kind":"category"}
+      ],
+      "formula": [
+        "raw = (zscore(hrv_today, 30d) * 0.4) - (zscore(rhr_today, 30d) * 0.3) + (zscore(sleep_architecture_efficiency_today, 30d) * 0.3)",
+        "readiness_score = clamp(50 + (raw / max_abs_raw_30d) * 50, 1, 100)"
+      ],
+      "output": {"name":"readiness_score","unit":"1-100"},
+      "alert": "readiness_score < 40",
+      "purpose": "Primary morning briefing number. Single recovery vs stress balance score.",
+      "grain": "daily"
+    },
+    {
+      "id": 32,
+      "name": "Burnout Velocity",
+      "short": "Burnout",
+      "category": "composite",
+      "depends_on": [11, 13, 18],
+      "formula": [
+        "burnout_signal[day] = sleep_debt_min + waso_min + sensory_overload_index",
+        "burnout_velocity = REGR_SLOPE(burnout_signal, day_index) OVER (ORDER BY date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)"
+      ],
+      "output": {"name":"burnout_velocity","unit":"units/day"},
+      "alert": "burnout_velocity > 0 for 3+ consecutive days",
+      "purpose": "Rate of change of combined debt signals. Positive acceleration = approaching crash.",
+      "grain": "daily"
+    },
+    {
+      "id": 33,
+      "name": "Vagal Tone Rebound",
+      "short": "HRV Rebound",
+      "category": "composite",
+      "wire_inputs": [
+        {"type":"heartRateVariabilitySDNN","kind":"quantity","unit":"ms"},
+        {"type":"sleepAnalysis","kind":"category"}
+      ],
+      "formula": [
+        "bed_utc = min(start_utc for category_value==0 for the night)",
+        "wake_utc = max(end_utc for category_value IN (1,3,4,5) for the night)",
+        "hrv_pre_sleep = avg(hrv.value where start_utc BETWEEN bed_utc - 3600 AND bed_utc)",
+        "hrv_post_wake = avg(hrv.value where start_utc BETWEEN wake_utc AND wake_utc + 3600)",
+        "rebound_ms = hrv_post_wake - hrv_pre_sleep"
+      ],
+      "output": {"name":"vagal_rebound_ms","unit":"ms"},
+      "alert": "vagal_rebound_ms < -5",
+      "interpretation": "positive = sleep cleared stress | negative = woke more stressed than sleep onset",
+      "purpose": "Single most interpretable nightly recovery signal.",
+      "grain": "nightly"
+    }
+  ],
+  "agent_prompt_fields": [
+    "readiness_score", "hrv_cv", "rhr_slope_bpm_per_day", "rr_deviation_brpm",
+    "sleep_debt_min", "sleep_architecture_efficiency", "vagal_rebound_ms",
+    "acwr", "burnout_velocity", "contextual_stress_peaks", "sensory_overload_index",
+    "sol_zscore", "waso_min"
+  ],
+  "sql_helpers": {
+    "rolling_mean_7d": "AVG(value) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)",
+    "rolling_stddev_7d": "STDDEV_SAMP(value) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)",
+    "rolling_mean_30d": "AVG(value) OVER (ORDER BY date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW)",
+    "zscore_30d": "(value - AVG(value) OVER w30) / NULLIF(STDDEV_SAMP(value) OVER w30, 0)",
+    "linreg_slope": "REGR_SLOPE(value, day_index) OVER (...)",
+    "ewma_note": "DuckDB has no native EWMA. Use recursive CTE or pre-compute via pandas.ewm(span=N, adjust=False)"
+  }
+}

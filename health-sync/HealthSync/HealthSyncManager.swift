@@ -67,15 +67,6 @@ final class HealthSyncManager: ObservableObject {
     /// missing or the fix timed out.
     private var currentLocation: CLLocation?
 
-    /// Wake-window for behavioural reminders (wear-your-watch, etc.). Defaults
-    /// to 7am–11pm. Stored as hours 0–23. End may be < start (window wraps midnight).
-    @Published var wakeStartHour: Int = UserDefaults.standard.object(forKey: "wakeStart") as? Int ?? 7
-    @Published var wakeEndHour: Int = UserDefaults.standard.object(forKey: "wakeEnd") as? Int ?? 23
-
-    /// Wear-watch reminder thresholds.
-    private let watchWearThreshold: TimeInterval = 30 * 60      // 30 min of no HR
-    private let watchWearCooldown:  TimeInterval = 4  * 60 * 60 // max one alert per 4h
-
     /// In-memory ring buffer of recent events for the activity feed.
     @Published var recentSyncs: [SyncEvent] = []
     private let maxHistory = 200
@@ -97,7 +88,42 @@ final class HealthSyncManager: ObservableObject {
     // `TrendsView` can run its own statistics queries without a wrapper layer.
     nonisolated let store = HKHealthStore()
     private var observerQueries: [HKObserverQuery] = []
-    private var endpoint: SyncEndpoint { SyncEndpoint(baseURL: serverURL, deviceID: deviceID) }
+
+    // MARK: transport
+
+    /// Which sync transport is active. Persisted to UserDefaults under `"transportKind"`.
+    /// Defaults to HTTP because that's the implemented one; Pilot is a stub.
+    @Published var transportKind: TransportKind = {
+        if let raw = UserDefaults.standard.string(forKey: "transportKind"),
+           let k = TransportKind(rawValue: raw) {
+            return k
+        }
+        return .http
+    }()
+
+    /// Pilot peer address (when `transportKind == .pilot`). Set in Settings.
+    /// Normalised at load so a previously-saved colon-style address gets
+    /// auto-corrected on next launch without losing the user's input.
+    @Published var pilotPeerAddress: String = {
+        let raw = UserDefaults.standard.string(forKey: "pilotPeerAddress") ?? ""
+        return HealthSyncManager.normalizePilotAddress(raw)
+    }()
+    @Published var pilotPeerNodeID:  UInt32 = UInt32(UserDefaults.standard.integer(forKey: "pilotPeerNodeID"))
+
+    /// Build the active transport on demand. Each call returns a fresh value
+    /// so a Settings toggle takes effect immediately on the next sync.
+    private var transport: any SyncTransport {
+        switch transportKind {
+        case .http:
+            return HTTPSyncTransport(baseURL: serverURL, deviceID: deviceID)
+        case .pilot:
+            return PilotSyncTransport(
+                deviceID: deviceID,
+                peerAddress: pilotPeerAddress,
+                peerNodeID: pilotPeerNodeID
+            )
+        }
+    }
 
     /// Per-type re-entrance guard. HK fires each observer once on registration, so without
     /// this `bootstrap()` would kick off `syncAll` AND ~19 observer-triggered `syncOne`s in
@@ -155,13 +181,21 @@ final class HealthSyncManager: ObservableObject {
         // Prompt for location once, right after HK — the user is already in
         // "granting permissions" mode and a second dialog reads as expected.
         LocationProvider.shared.requestAuth()
+        // Boot the Pilot daemon and seed its peer config. State stays observable
+        // on PilotBoot.shared regardless of which transport is currently active —
+        // user can flip to Pilot in Settings any time.
+        PilotBoot.shared.setPeer(address: pilotPeerAddress, nodeID: pilotPeerNodeID)
+        Task {
+            await PilotBoot.shared.start()
+            _ = await PilotBoot.shared.ensureTrusted()
+        }
         recordEvent(kind: "boot", success: true, message: "Observers installed, BG tasks scheduled")
         // Compute readiness + models *eagerly* from HealthKit, in parallel with
         // the launch sync. The user sees the Status / Models tabs populated
         // within ~1 s of launch instead of waiting for syncAll to finish.
         Task {
             currentActivity = "Computing readiness from HealthKit…"
-            readiness = await Readiness.compute(store: store)
+            readiness = await Readiness.compute(store: store, cache: cachedSeries)
             await refreshDerivedState()
         }
         Task { await pingServer() }
@@ -281,8 +315,7 @@ final class HealthSyncManager: ObservableObject {
         recordEvent(kind: "sync", success: true, message: "syncAll done: +\(grandTotal) samples (\(reason))")
         await NotificationManager.shared.evaluateSyncHealth(
             lastSuccess: lastSyncDate, serverReachable: true)
-        await checkWatchWear()
-        readiness = await Readiness.compute(store: store)
+        readiness = await Readiness.compute(store: store, cache: cachedSeries)
         await refreshDerivedState()
         await publishWidgetSnapshot(lastBatchSamples: grandTotal)
     }
@@ -418,7 +451,7 @@ final class HealthSyncManager: ObservableObject {
             var pageOK = true
             for (idx, batch) in batches.enumerated() {
                 do {
-                    let result = try await endpoint.ingest(samples: batch, metadata: meta)
+                    let result = try await transport.ingest(samples: batch, metadata: meta)
                     pageAccepted += result.accepted
                     pageDuplicate += result.duplicate
                 } catch {
@@ -485,11 +518,16 @@ final class HealthSyncManager: ObservableObject {
     /// (JSONSerialization raises an NSException on them — unrecoverable in pure
     /// Swift) and unit mismatches (raised "degC vs %"-style NSException too).
     nonisolated static func encode(sample: HKSample) -> [String: Any]? {
+        let startTs = sample.startDate.timeIntervalSince1970
+        let endTs   = sample.endDate.timeIntervalSince1970
+        // Defensive — Apple's HK shouldn't hand us NaN-stamped samples but
+        // JSON serialization traps on them so we belt-and-brace this.
+        guard startTs.isFinite, endTs.isFinite else { return nil }
         var dict: [String: Any] = [
             "type":       HKTypes.canonicalId(for: sample.sampleType),
             "source":     sample.sourceRevision.source.name,
-            "start_utc":  sample.startDate.timeIntervalSince1970,
-            "end_utc":    sample.endDate.timeIntervalSince1970,
+            "start_utc":  startTs,
+            "end_utc":    endTs,
             "uuid":       sample.uuid.uuidString,
         ]
         if let device = sample.device?.name {
@@ -527,15 +565,15 @@ final class HealthSyncManager: ObservableObject {
     }
 
     func pingServer() async {
-        do {
-            _ = try await endpoint.healthz()
-            let wasReachable = serverReachable
-            serverReachable = true
-            if !wasReachable { recordEvent(kind: "ping", success: true, message: "server up: \(serverURL)") }
-        } catch {
-            let wasReachable = serverReachable
-            serverReachable = false
-            if wasReachable { recordEvent(kind: "ping", success: false, message: "server down: \(error.localizedDescription)") }
+        let ok = await transport.ping()
+        let wasReachable = serverReachable
+        serverReachable = ok
+        if ok && !wasReachable {
+            recordEvent(kind: "ping", success: true,
+                        message: "\(transportKind.displayName) reachable")
+        } else if !ok && wasReachable {
+            recordEvent(kind: "ping", success: false,
+                        message: "\(transportKind.displayName) unreachable")
         }
     }
 
@@ -580,57 +618,66 @@ final class HealthSyncManager: ObservableObject {
         UserDefaults.standard.set(id, forKey: "deviceID")
     }
 
-    func updateWakeWindow(start: Int, end: Int) {
-        wakeStartHour = max(0, min(23, start))
-        wakeEndHour   = max(0, min(23, end))
-        UserDefaults.standard.set(wakeStartHour, forKey: "wakeStart")
-        UserDefaults.standard.set(wakeEndHour,   forKey: "wakeEnd")
+    func updateTransport(_ kind: TransportKind) {
+        transportKind = kind
+        UserDefaults.standard.set(kind.rawValue, forKey: "transportKind")
+        recordEvent(kind: "boot", success: true,
+                    message: "transport switched to \(kind.displayName)")
+        Task { await pingServer() }
     }
 
-    /// True if `now`'s hour is within the user's wake window. The window may
-    /// wrap midnight (e.g. start=22, end=6 → 10pm–6am).
-    private var inWakeWindow: Bool {
-        let hour = Calendar.current.component(.hour, from: Date())
-        if wakeStartHour <= wakeEndHour {
-            return hour >= wakeStartHour && hour < wakeEndHour
+    func updatePilotPeer(address: String, nodeID: UInt32) {
+        // Normalise common entry mistakes. Pilot virtual addresses look like
+        // `N:HHHH.HHHH.HHHH` — one colon after the network number then three
+        // *dot*-separated hex groups. People paste them with colons throughout
+        // (IPv6-style); convert that here so the daemon doesn't reject it.
+        let normalized = Self.normalizePilotAddress(address)
+        pilotPeerAddress = normalized
+        pilotPeerNodeID  = nodeID
+        UserDefaults.standard.set(normalized, forKey: "pilotPeerAddress")
+        UserDefaults.standard.set(Int(nodeID), forKey: "pilotPeerNodeID")
+        PilotBoot.shared.setPeer(address: normalized, nodeID: nodeID)
+        recordEvent(kind: "boot", success: true,
+                    message: "Pilot peer set: \(normalized) (#\(nodeID))")
+        Task {
+            _ = await PilotBoot.shared.ensureTrusted()
+            if transportKind == .pilot { await pingServer() }
         }
-        return hour >= wakeStartHour || hour < wakeEndHour
     }
 
-    /// Heuristic wear-detection: if there's no HR sample in the last 30 min,
-    /// the watch is probably off (charging / left at home / dead). Notify at
-    /// most once per 4h and only during the wake window.
-    func checkWatchWear() async {
-        guard inWakeWindow else { return }
-        let key = "lastWearAlert"
-        let lastAlert = UserDefaults.standard.double(forKey: key)
-        let now = Date().timeIntervalSince1970
-        guard now - lastAlert > watchWearCooldown else { return }
-
-        let mostRecent = await mostRecentSampleDate(identifier: .heartRate)
-        let stale = mostRecent == nil
-            || Date().timeIntervalSince(mostRecent!) > watchWearThreshold
-        guard stale else { return }
-
-        UserDefaults.standard.set(now, forKey: key)
-        let mins = Int(watchWearThreshold / 60)
-        await NotificationManager.shared.notify(
-            title: "Wear your Apple Watch",
-            body: "No heart-rate data in the last \(mins) min. HealthSync can't sync what your watch doesn't record."
-        )
-        recordEvent(kind: "notif", success: true,
-                    message: "Sent wear-watch reminder (no HR for \(mins)+ min)")
-    }
-
-    private func mostRecentSampleDate(identifier: HKQuantityTypeIdentifier) async -> Date? {
-        guard let t = HKObjectType.quantityType(forIdentifier: identifier) else { return nil }
-        return await withCheckedContinuation { cont in
-            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-            let q = HKSampleQuery(sampleType: t, predicate: nil, limit: 1, sortDescriptors: [sort]) { _, samples, _ in
-                cont.resume(returning: samples?.first?.endDate)
-            }
-            store.execute(q)
+    /// `0:0000:0002:74EE` → `0:0000.0002.74EE`. Also strips whitespace and
+    /// upcases hex digits so the on-disk format stays canonical.
+    static func normalizePilotAddress(_ s: String) -> String {
+        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = trimmed.components(separatedBy: ":")
+        if parts.count == 4 {
+            // User typed all colons — rewrite as N:H.H.H
+            return "\(parts[0]):\(parts[1]).\(parts[2]).\(parts[3])".uppercased()
+                .replacingOccurrences(of: "0X", with: "0x")
         }
+        return trimmed
+    }
+
+    /// Wipe the configured Pilot peer. If the active transport was Pilot,
+    /// also flips back to HTTP so the user isn't left in a stuck "Pilot
+    /// selected with no peer" state.
+    func clearPilotPeer() {
+        pilotPeerAddress = ""
+        pilotPeerNodeID  = 0
+        UserDefaults.standard.removeObject(forKey: "pilotPeerAddress")
+        UserDefaults.standard.removeObject(forKey: "pilotPeerNodeID")
+        PilotBoot.shared.setPeer(address: "", nodeID: 0)
+        recordEvent(kind: "boot", success: true, message: "Pilot peer removed")
+        if transportKind == .pilot {
+            updateTransport(.http)
+        }
+    }
+
+    /// True if Pilot is a valid transport choice right now. Used by Settings
+    /// to gate the "Pilot" picker option — selecting it without a peer makes
+    /// no sense and is the source of half the support questions.
+    var pilotConfigured: Bool {
+        !pilotPeerAddress.isEmpty && pilotPeerNodeID != 0
     }
 }
 

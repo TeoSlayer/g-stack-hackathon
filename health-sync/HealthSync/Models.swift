@@ -29,29 +29,79 @@ enum Band: String {
 }
 
 enum ModelKind: String, CaseIterable, Identifiable {
+    // Original 7
     case sleepRegularity, autonomicBalance, sedentaryStress
     case cognitiveDebt, burnoutCUSUM, bedtimeDrift, kalmanHRV
+    // Spec metrics — Tier 1 (autonomic)
+    case rrDeviation, vagalRebound, rhrSlope, morningSurge, acwr, hrvCV
+    // Spec metrics — Tier 2 (sleep precision)
+    case sleepEfficiency, waso, solSpike, socialJetlag
+    // Spec metrics — Tier 3 (metabolic / behavioral)
+    case spO2Density, acousticLoad, lightDeficit, sedentaryFrag
+    case bodyMassVolatility, vo2Trend, burnoutVelocity
+    case trainingMonotony, rhrDip, neat
+
     var id: String { rawValue }
     var displayName: String {
         switch self {
-        case .sleepRegularity:  return "Sleep Regularity Index"
-        case .autonomicBalance: return "Autonomic Balance"
-        case .sedentaryStress:  return "Sedentary Stress"
-        case .cognitiveDebt:    return "Cognitive Recovery Debt"
-        case .burnoutCUSUM:     return "Burnout Early Warning"
-        case .bedtimeDrift:     return "Circadian Drift"
-        case .kalmanHRV:        return "HRV (Kalman-smoothed)"
+        case .sleepRegularity:    return "Sleep Regularity Index"
+        case .autonomicBalance:   return "Autonomic Balance"
+        case .sedentaryStress:    return "Sedentary Stress"
+        case .cognitiveDebt:      return "Cognitive Recovery Debt"
+        case .burnoutCUSUM:       return "Burnout Early Warning"
+        case .bedtimeDrift:       return "Circadian Drift"
+        case .kalmanHRV:          return "HRV (Kalman-smoothed)"
+        case .rrDeviation:        return "Respiratory Rate Deviation"
+        case .vagalRebound:       return "Vagal Tone Rebound"
+        case .rhrSlope:           return "RHR Trajectory"
+        case .morningSurge:       return "Morning HR Surge"
+        case .acwr:               return "Workload Ratio (ACWR)"
+        case .hrvCV:              return "HRV Stability"
+        case .sleepEfficiency:    return "Sleep Architecture Efficiency"
+        case .waso:               return "Wakefulness After Sleep Onset"
+        case .solSpike:           return "Sleep Onset Latency"
+        case .socialJetlag:       return "Social Jetlag"
+        case .spO2Density:        return "SpO2 Desaturation Density"
+        case .acousticLoad:       return "Acoustic Load"
+        case .lightDeficit:       return "Light Deficit"
+        case .sedentaryFrag:      return "Movement Rate"
+        case .bodyMassVolatility: return "Body Mass Stability"
+        case .vo2Trend:           return "VO2 Max Trend"
+        case .burnoutVelocity:    return "Burnout Velocity"
+        case .trainingMonotony:   return "Training Monotony"
+        case .rhrDip:             return "Nocturnal HR Dip"
+        case .neat:               return "Non-Exercise Activity (NEAT)"
         }
     }
     var citation: String {
         switch self {
-        case .sleepRegularity:  return "Phillips et al."
-        case .autonomicBalance: return "Composite z-score"
-        case .sedentaryStress:  return "Castaldo et al."
-        case .cognitiveDebt:    return "Sleep-debt accumulator"
-        case .burnoutCUSUM:     return "Page / Shewhart control chart"
-        case .bedtimeDrift:     return "Mann-Kendall trend test"
-        case .kalmanHRV:        return "Local-level state-space"
+        case .sleepRegularity:    return "Phillips et al."
+        case .autonomicBalance:   return "Composite z-score"
+        case .sedentaryStress:    return "Castaldo et al."
+        case .cognitiveDebt:      return "Sleep-debt accumulator"
+        case .burnoutCUSUM:       return "Page / Shewhart control chart"
+        case .bedtimeDrift:       return "Mann-Kendall trend test"
+        case .kalmanHRV:          return "Local-level state-space"
+        case .rrDeviation:        return "EWMA acute vs chronic"
+        case .vagalRebound:       return "Pre/post-sleep HRV delta"
+        case .rhrSlope:           return "7-day linear regression"
+        case .morningSurge:       return "Orthostatic HR proxy"
+        case .acwr:               return "Gabbett et al."
+        case .hrvCV:              return "ANS stability ratio"
+        case .sleepEfficiency:    return "AASM deep+REM / in-bed"
+        case .waso:               return "PSG standard"
+        case .solSpike:           return "30-day z-score"
+        case .socialJetlag:       return "Roenneberg et al."
+        case .spO2Density:        return "Apnea proxy (AASM)"
+        case .acousticLoad:       return "NIOSH dose metric"
+        case .lightDeficit:       return "Leproult et al."
+        case .sedentaryFrag:      return "Stand events / awake hour"
+        case .bodyMassVolatility: return "7-day stddev"
+        case .vo2Trend:           return "30-day derivative"
+        case .burnoutVelocity:    return "Composite slope"
+        case .trainingMonotony:   return "Foster et al."
+        case .rhrDip:             return "Nocturnal dipping ratio"
+        case .neat:               return "Levine et al."
         }
     }
 }
@@ -63,6 +113,7 @@ enum Models {
     /// so the 5 models that need HRV/RHR/Sleep skip a redundant HK round-trip.
     static func computeAll(store: HKHealthStore,
                            cache: [MetricKind: MetricSeries] = [:]) async -> [ModelReading] {
+        // Original 7
         async let sri   = sleepRegularityIndex(store: store)
         async let abal  = autonomicBalance(store: store, cache: cache)
         async let sed   = sedentaryStress(store: store, cache: cache)
@@ -70,11 +121,40 @@ enum Models {
         async let cusum = burnoutCUSUM(store: store, cache: cache)
         async let mk    = bedtimeDrift(store: store)
         async let kal   = kalmanHRV(store: store, cache: cache)
-        return await [sri, abal, sed, debt, cusum, mk, kal]
+        // Tier 1 — autonomic
+        async let rrDev  = rrDeviation(store: store)
+        async let vagal  = vagalRebound(store: store)
+        async let rhrSl  = rhrSlopeMetric(store: store, cache: cache)
+        async let surge  = morningSurge(store: store)
+        async let acwrR  = acwrMetric(store: store)
+        async let hrvcv  = hrvCVMetric(store: store, cache: cache)
+        // Tier 2 — sleep precision
+        async let slEff  = sleepEfficiencyMetric(store: store)
+        async let wasoR  = wasoMetric(store: store)
+        async let solSp  = solSpikeMetric(store: store)
+        async let sji    = socialJetlagMetric(store: store)
+        // Tier 3 — metabolic / behavioral
+        async let spo2   = spO2DensityMetric(store: store)
+        async let acous  = acousticLoadMetric(store: store)
+        async let light  = lightDeficitMetric(store: store)
+        async let sfr    = sedentaryFragMetric(store: store)
+        async let bmVol  = bodyMassVolatilityMetric(store: store)
+        async let vo2tr  = vo2TrendMetric(store: store)
+        async let bVel   = burnoutVelocityMetric(store: store, cache: cache)
+        async let mono   = trainingMonotony(store: store)
+        async let rDip   = rhrDipAmplitude(store: store)
+        async let neatR  = neatProxy(store: store)
+        return await [
+            sri, abal, sed, debt, cusum, mk, kal,
+            rrDev, vagal, rhrSl, surge, acwrR, hrvcv,
+            slEff, wasoR, solSp, sji,
+            spo2, acous, light, sfr, bmVol, vo2tr, bVel,
+            mono, rDip, neatR
+        ]
     }
 
     /// Read a series from the cache, fall back to a fresh HK query if absent.
-    fileprivate static func seriesOrFetch(_ kind: MetricKind, days: Int,
+    static func seriesOrFetch(_ kind: MetricKind, days: Int,
                                           cache: [MetricKind: MetricSeries],
                                           store: HKHealthStore) async -> MetricSeries {
         if let cached = cache[kind], cached.history.count >= 3 {
@@ -425,7 +505,7 @@ extension Models {
 
 // MARK: - Math primitives
 
-private func zscore(_ xs: [Double]) -> Double? {
+func zscore(_ xs: [Double]) -> Double? {
     guard xs.count >= 2 else { return nil }
     let m = xs.reduce(0, +) / Double(xs.count)
     let v = xs.map { ($0 - m) * ($0 - m) }.reduce(0, +) / Double(xs.count - 1)
@@ -434,14 +514,14 @@ private func zscore(_ xs: [Double]) -> Double? {
     return (last - m) / s
 }
 
-private func stddev(_ xs: [Double]) -> Double? {
+func stddev(_ xs: [Double]) -> Double? {
     guard xs.count >= 2 else { return nil }
     let m = xs.reduce(0, +) / Double(xs.count)
     let v = xs.map { ($0 - m) * ($0 - m) }.reduce(0, +) / Double(xs.count - 1)
     return sqrt(v)
 }
 
-private func mean(of xs: [Double]) -> Double? {
+func mean(of xs: [Double]) -> Double? {
     guard !xs.isEmpty else { return nil }
     return xs.reduce(0, +) / Double(xs.count)
 }
@@ -584,9 +664,4 @@ private func fetchNightlyBedtimes(store: HKHealthStore, days: Int) async -> [Met
         let minsPastNoon = bedStart.timeIntervalSince(noonBefore) / 60.0
         return MetricPoint(date: wakeDay, value: minsPastNoon)
     }
-}
-
-private func mean(of result: [MetricPoint]) -> Double? {
-    let xs = result.map(\.value)
-    return xs.isEmpty ? nil : xs.reduce(0, +) / Double(xs.count)
 }

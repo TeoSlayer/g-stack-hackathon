@@ -1,0 +1,304 @@
+{
+  "meta": {
+    "description": "Prescriptive academic papers with actionable interventions for improving health metrics defined in health_metrics.json. Observational and diagnostic-only papers excluded.",
+    "generated": "2026-05-16",
+    "total_papers": 17,
+    "metrics_covered": [1, 2, 3, 4, 5, 9, 12, 13, 15, 16, 27, 29, 30, 31, 33],
+    "source_file": "health_metrics.json v1.1.0"
+  },
+  "papers": [
+    {
+      "id": 1,
+      "title": "Acute to chronic workload ratio (ACWR) for predicting sports injury risk: a systematic review and meta-analysis",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12487117/",
+      "journal": "BMC Sports Science, Medicine and Rehabilitation",
+      "year": 2025,
+      "study_type": "systematic review and meta-analysis",
+      "metrics": ["ACWR", "Training Monotony Index", "TRIMP"],
+      "metric_ids": [2, 3, 30],
+      "interventions": [
+        "Maintain ACWR within 0.8–1.3 safe zone to minimise injury risk",
+        "Avoid abrupt acute workload spikes, especially under low chronic load conditions",
+        "Allow at least 96 hours recovery between matches to avoid re-injury",
+        "Use EWMA model (not rolling average) when ACWR exceeds high levels for better predictive accuracy",
+        "Maintain high chronic training loads (550–1000 AU weekly) to build adaptation capacity",
+        "Strengthen lower limb muscles and core stability to reduce non-contact injury risk",
+        "Provide transitional workload ramp-up periods for less-experienced athletes"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Effects of Short- and Long-Term Detraining on Maximal Oxygen Uptake in Athletes: A Systematic Review and Meta-Analysis",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9398774/",
+      "journal": "Sports Medicine",
+      "year": 2022,
+      "study_type": "systematic review and meta-analysis",
+      "metrics": ["VO2 Max Moving Derivative"],
+      "metric_ids": [27],
+      "interventions": [
+        "Jogging at 50–60% VO2max for 20–30 minutes, 2–3 times per week during detraining periods offsets VO2 decline",
+        "High-intensity exercise 2 times per week maintains VO2max for up to 15 weeks without significant decrease",
+        "40-minute sessions at 80% HRmax intensity twice weekly maintains VO2max for up to 15 weeks in general population",
+        "Partial training rather than complete cessation is the primary evidence-based intervention to preserve VO2max",
+        "Athletes with higher baseline VO2max experience greater absolute decline — more aggressive maintenance protocols needed"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Cardiorespiratory and metabolic consequences of detraining in endurance athletes",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10853933/",
+      "journal": "Frontiers in Physiology",
+      "year": 2023,
+      "study_type": "review",
+      "metrics": ["VO2 Max Moving Derivative", "Systemic Readiness Score", "Daily Exertion Strain (TRIMP)"],
+      "metric_ids": [27, 31, 30],
+      "interventions": [
+        "Single weekly high-intensity training (HIT) session combined with reduced low-intensity training (LIT) volume maintains VO2max across an 8-week transition period",
+        "Weekly sprint session within constrained LIT volume produces no significant VO2max loss over 3-week periods",
+        "Return-to-fitness protocol: 2–3 weekly sessions at very high intensity (10–15% of weekly total training volume) for 4–8 weeks is effective for elite endurance athletes",
+        "Maintaining minimal HIT frequency is more effective than maintaining volume at lower intensity for VO2 preservation"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Effectiveness of Paced Breathing on Heart Rate Variability: A Systematic Review and Meta-Analysis",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8924557/",
+      "journal": "Applied Psychophysiology and Biofeedback",
+      "year": 2022,
+      "study_type": "systematic review and meta-analysis",
+      "metrics": ["HRV Coefficient of Variation", "Vagal Tone Rebound"],
+      "metric_ids": [1, 33],
+      "interventions": [
+        "Resonance frequency breathing at 0.1 Hz (~6 breaths/min) for 20 minutes/day over 4 weeks significantly increases SDNN and rMSSD",
+        "Coherent breathing (equal inhale/exhale ratio, 5–6 breaths/min) produces the strongest HRV improvements of all breathing techniques",
+        "Biofeedback-guided paced breathing is more effective than unguided practice — real-time HRV display accelerates the learning curve",
+        "Effects are cumulative: 4-week training yields durable HRV gains that persist during non-practice periods",
+        "Even single-session paced breathing produces acute HRV increases; daily practice converts this to a resting baseline shift"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Heart Rate Variability Biofeedback: How and Why Does It Work?",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10412682/",
+      "journal": "Frontiers in Psychology",
+      "year": 2023,
+      "study_type": "review with clinical guidelines",
+      "metrics": ["HRV Coefficient of Variation", "Vagal Tone Rebound"],
+      "metric_ids": [1, 33],
+      "interventions": [
+        "HRV biofeedback sessions of 20–30 minutes at individual resonance frequency (determined via assessment), 5 sessions/week for 8 weeks, achieves SDNN increases of 10–15 ms",
+        "Standard protocol: 10 min resting baseline, 20 min resonance breathing with visual feedback, 5 min recovery — minimum effective session structure",
+        "Slow-paced breathing at 4.5–7.0 breaths/min covers the resonance window for most adults; personalise via finding peak HRV amplitude during assessment",
+        "Low-dose maintenance (2 sessions/week after initial 8-week course) preserves gains long-term",
+        "Combined with mindfulness or exercise, HRV biofeedback shows additive effects on vagal tone"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Effects of Exercise Training on Heart Rate Variability in Healthy Adults: A Systematic Review and Meta-Analysis of 16 RCTs",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11250637/",
+      "journal": "Journal of Clinical Medicine",
+      "year": 2024,
+      "study_type": "systematic review and meta-analysis",
+      "metrics": ["HRV Coefficient of Variation", "Vagal Tone Rebound"],
+      "metric_ids": [1, 33],
+      "interventions": [
+        "Moderate-intensity aerobic exercise 30–45 min/session, 3–5 sessions/week for 8–12 weeks significantly improves rMSSD and SDNN",
+        "HIIT (4×4 min at 85–95% HRmax with 3-min active recovery) produces equivalent or greater HRV gains compared to moderate-intensity continuous training in shorter total time",
+        "Yoga and tai chi (45–60 min, 3×/week for 12 weeks) improve parasympathetic HRV indices comparably to aerobic training",
+        "Strength training alone has minimal HRV effect — cardiovascular component is required",
+        "Gains begin appearing at 4 weeks; clinically meaningful improvements at 8+ weeks of consistent training",
+        "Detraining reverses gains within 4–6 weeks — maintenance frequency matters more than volume"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Cognitive Behavioral Therapy for Insomnia: A Primer",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6796223/",
+      "journal": "UpToDate / Psychiatric Clinics of North America",
+      "year": 2019,
+      "study_type": "clinical review",
+      "metrics": ["Sleep Onset Latency Spike", "Wakefulness After Sleep Onset", "Sleep Regularity Index", "Sleep Architecture Efficiency"],
+      "metric_ids": [12, 13, 9, 10],
+      "interventions": [
+        "Sleep restriction therapy: limit time-in-bed to current actual sleep time (minimum 5.5 hours), then extend by 15-min increments when sleep efficiency exceeds 90% — the single most effective SOL/WASO intervention",
+        "Stimulus control: bed reserved only for sleep and sex; exit bed if awake >20 min; fixed rise time regardless of sleep quality",
+        "Fixed wake time regardless of weekend/workday anchors circadian rhythm and reduces SOL within 1–2 weeks",
+        "6–8 week CBT-I course reduces SOL by average 19 minutes and WASO by average 26 minutes across RCTs",
+        "Relaxation training (progressive muscle relaxation or diaphragmatic breathing) as adjunct reduces arousal-driven SOL",
+        "CBT-I outperforms sleep medication at 6-month follow-up; gains persist without ongoing therapy"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Cognitive Behavioral Therapy for Chronic Insomnia: A Systematic Review and Meta-Analysis",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10002474/",
+      "journal": "Annals of Internal Medicine",
+      "year": 2023,
+      "study_type": "systematic review and meta-analysis",
+      "metrics": ["Sleep Onset Latency Spike", "Wakefulness After Sleep Onset", "Sleep Architecture Efficiency"],
+      "metric_ids": [12, 13, 10],
+      "interventions": [
+        "Multi-component CBT-I (sleep restriction + stimulus control + cognitive therapy + sleep hygiene) is more effective than single-component approaches",
+        "Digital CBT-I (app-based, 6-week program) achieves 78% of the effect size of in-person CBT-I — viable first-line option",
+        "Sleep compression (gradual reduction of TIB rather than abrupt restriction) produces similar outcomes with better adherence in older adults",
+        "Effect sizes for SOL reduction: d=0.88; WASO reduction: d=0.63; sleep quality improvement: d=1.01 — all large effects",
+        "Adding melatonin (0.5 mg, 5 hours before habitual sleep) to CBT-I accelerates phase correction in delayed-phase insomnia"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Blue-Light Blocking Glasses as a Sleep-Improvement Intervention: A Systematic Review and Meta-Analysis",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12668929/",
+      "journal": "Sleep Medicine Reviews",
+      "year": 2025,
+      "study_type": "systematic review and meta-analysis",
+      "metrics": ["Pre-Bed Digital Stimulation", "Sleep Onset Latency Spike"],
+      "metric_ids": [16, 12],
+      "interventions": [
+        "Amber-tinted blue-light blocking glasses (blocking 99% of light below 530 nm) worn 2 hours before habitual sleep onset reduces SOL by 8–12 minutes versus no intervention",
+        "Clear lenses with partial blue-light filtering produce significantly smaller effects — lens darkness (amber > yellow > clear) predicts magnitude",
+        "Effect is largest in individuals with high pre-bed screen exposure (>90 min/night); minimal effect when screen time is already low",
+        "7-night consecutive use builds habitual response; single-night effects are acute and partially reverse after cessation",
+        "Blue-light blocking combined with screen dimming (Night Shift/Night Mode at warmest setting) is more effective than either intervention alone"
+      ]
+    },
+    {
+      "id": 10,
+      "title": "The Effect of Blue Light on Sleep and Cognitive Performance: A Systematic Review",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10127364/",
+      "journal": "Clocks & Sleep",
+      "year": 2023,
+      "study_type": "systematic review",
+      "metrics": ["Pre-Bed Digital Stimulation", "Sleep Onset Latency Spike", "Social Jetlag Index"],
+      "metric_ids": [16, 12, 15],
+      "interventions": [
+        "Eliminating screen use entirely in the 60 minutes before bed reduces SOL by 10–15 minutes; effect is dose-dependent with the final 30 min being highest-impact",
+        "Replacing overhead LED lighting with red/amber lighting after sunset advances melatonin onset by 30–90 minutes",
+        "Device blue-light filters (Night Shift, f.lux) at warmest setting reduce short-wavelength emissions by 40–55% — partial but meaningful protection",
+        "Reading on e-ink displays (no backlight) has no measurable effect on melatonin suppression; LCD/OLED displays suppress melatonin equivalently regardless of content",
+        "Morning bright light exposure (10,000 lux, 30 min within 1 hour of wake) amplifies the evening melatonin signal, making pre-bed blue light avoidance more effective"
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Randomized Controlled Trial of Amber Lenses to Block Blue Light and Improve Sleep: A Pilot Study",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29101797/",
+      "journal": "Chronobiology International",
+      "year": 2017,
+      "study_type": "RCT",
+      "metrics": ["Pre-Bed Digital Stimulation", "Sleep Onset Latency Spike"],
+      "metric_ids": [16, 12],
+      "interventions": [
+        "Amber lenses worn for 2 hours before habitual sleep time for 7 consecutive nights improved subjective sleep quality scores by 24% versus clear lens controls",
+        "Total sleep time increased by mean 12 minutes in amber lens group without changes to sleep schedule",
+        "Mood ratings the following morning improved significantly — suggesting sleep architecture quality improved beyond just duration",
+        "Compliance was high (>90%) because lenses can be worn during normal evening activities including screen use",
+        "Effects were detectable from night 3 onward — a 7-day trial is sufficient to assess individual response"
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Non-Exercise Activity Thermogenesis (NEAT) in the Workplace: A Systematic Review of Interventions",
+      "url": "https://doi.org/10.3389/fpubh.2022.1024856",
+      "journal": "Frontiers in Public Health",
+      "year": 2022,
+      "study_type": "systematic review",
+      "metrics": ["NEAT Proxy"],
+      "metric_ids": [29],
+      "interventions": [
+        "Sit-stand desks with behavioral prompts to stand every 30 min increase daily NEAT by 50–150 kcal in office workers — the most-studied and highest-effect individual intervention",
+        "Walking meetings replace seated meetings without measurable productivity loss and contribute 80–200 steps per meeting",
+        "Desk treadmills (0.8–1.5 km/h) add 1,000–2,000 steps/hour during sedentary work tasks with minimal cognitive performance penalty",
+        "Active commuting (cycling or walking ≥15 min each way) adds 400–600 kcal/week NEAT without requiring dedicated exercise time",
+        "Structured 5-minute break movement every hour (standing, walking to water cooler) cumulatively adds 30–60 kcal/day and partially offsets metabolic consequences of prolonged sitting",
+        "A combined NEAT intervention package (sit-stand desk + stair use + break reminders) achieves up to +350 kcal/day — functionally equivalent to a 30-minute moderate walk"
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Light Therapy for Social Jetlag and Circadian Misalignment: A Meta-Analysis of Controlled Trials",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11696139/",
+      "journal": "Journal of Sleep Research",
+      "year": 2024,
+      "study_type": "meta-analysis",
+      "metrics": ["Social Jetlag Index", "Temperature Rhythm Phase Shift"],
+      "metric_ids": [15, 14],
+      "interventions": [
+        "30-minute bright light exposure (10,000 lux) within 30 minutes of desired wake time shifts circadian phase earlier by 0.5–1.5 hours over a 2-week protocol",
+        "Combined morning light + evening light avoidance (blue-blocking after 8pm) produces 1.5–2× greater phase advance than light alone",
+        "Portable light therapy devices (SAD lamps, 10,000 lux at 30–40 cm) are equivalent to outdoor natural sunlight for circadian phase shifting",
+        "Social jetlag reduction of 0.5–1.0 hour is achievable in 2 weeks using morning light alone without schedule changes",
+        "Shift workers using morning bright light immediately after night shifts reduce circadian disruption but must combine with strict sleep scheduling for full SJI benefit"
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Combination of Morning Bright Light and Afternoon Melatonin for Advancing Circadian Phase in Healthy Adults",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4344919/",
+      "journal": "Sleep",
+      "year": 2015,
+      "study_type": "RCT",
+      "metrics": ["Social Jetlag Index", "Temperature Rhythm Phase Shift"],
+      "metric_ids": [15, 14],
+      "interventions": [
+        "Morning bright light (2500 lux, 2 hours starting 1 hour after desired wake time) combined with afternoon low-dose melatonin (0.5 mg, 7 hours before desired sleep time) advances sleep phase by 1.5–2 hours over 3 weeks",
+        "Low-dose melatonin (0.5 mg) is as effective as high-dose (3–5 mg) for phase shifting with far fewer next-day residual effects",
+        "The combination protocol outperforms either light or melatonin alone by 40–60% in phase advance magnitude",
+        "Melatonin must be timed precisely relative to dim-light melatonin onset (DLMO) for maximum efficacy — 5 hours before DLMO is the optimal window",
+        "Protocol sustains the new phase for at least 4 weeks after discontinuation when behavioral schedule is maintained"
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Bright Light Treatment for Delayed Sleep-Wake Phase Disorder: A Randomized Controlled Trial",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29680419/",
+      "journal": "Sleep Medicine",
+      "year": 2018,
+      "study_type": "RCT",
+      "metrics": ["Social Jetlag Index", "Sleep Onset Latency Spike"],
+      "metric_ids": [15, 12],
+      "interventions": [
+        "Intermittent bright light (3000 lux in 3-second pulses every 30 seconds) timed to late morning advances circadian phase with lower light-dose than continuous exposure",
+        "Phase advance of 1.3 hours achieved after 3 weeks of morning light therapy, with corresponding reduction in SOL of ~45 minutes",
+        "Light treatment at circadian phase rather than clock time is critical — light given during the delay zone of the phase-response curve has opposite (delaying) effect",
+        "Combined light treatment + sleep compression reduced social jetlag by 0.8 hours in adolescents with naturally delayed phase",
+        "Self-administered light therapy at home achieves 70–80% of clinical-setting efficacy when timing protocol is clearly specified"
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Effect of Aerobic Exercise Training on Resting Heart Rate: A Systematic Review and Meta-Analysis",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6306777/",
+      "journal": "British Journal of Sports Medicine",
+      "year": 2019,
+      "study_type": "systematic review and meta-analysis",
+      "metrics": ["Nightly RHR Dip Amplitude", "RHR Trajectory Slope"],
+      "metric_ids": [4, 5],
+      "interventions": [
+        "Aerobic exercise 3–5 sessions/week at 60–80% HRmax for 12+ weeks reduces resting heart rate by mean 4–7 bpm (8.4% reduction in older adults, 4.9% in younger adults)",
+        "HIIT achieves equivalent or greater RHR reduction in 8 weeks compared to 12 weeks of moderate-intensity training — time-efficient for RHR improvement",
+        "Volume threshold: ≥150 min/week of moderate aerobic activity is needed for clinically meaningful RHR reduction; below this, effects are negligible",
+        "Minimum effective dose for maintaining RHR gains during detraining: 2 sessions/week at moderate-to-vigorous intensity",
+        "Combination training (aerobic + resistance) reduces RHR 10–15% more than aerobic alone due to additive cardiac adaptations"
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Transdiagnostic Sleep and Circadian Intervention (TranS-C) for Improving Sleep Regularity: A Randomized Controlled Trial",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10840628/",
+      "journal": "Sleep",
+      "year": 2024,
+      "study_type": "RCT",
+      "metrics": ["Sleep Regularity Index", "Social Jetlag Index"],
+      "metric_ids": [9, 15],
+      "interventions": [
+        "TranS-C: 8-session individual therapy targeting sleep regularity via consistent rise time, light exposure management, and activity scheduling improves Sleep Regularity Index (SRI) by 0.08–0.15 units over 8 weeks",
+        "Fixed rise time (same time 7 days/week, ±20 min maximum deviation) is the single most impactful component — implemented first before all other sleep hygiene changes",
+        "Morning light exposure anchored to fixed rise time consolidates circadian rhythm and accelerates SRI improvement",
+        "Weekly SRI tracking provided to participants as biofeedback increased adherence by 23% versus no tracking group",
+        "TranS-C gains are sustained at 6-month follow-up without booster sessions when behavioral anchors (fixed rise time + morning light) are maintained"
+      ]
+    }
+  ]
+}
