@@ -392,8 +392,10 @@ final class PilotBoot: ObservableObject {
         return header + payload
     }
 
-    /// Strips the 8-byte frame header from a received frame and returns the payload as String.
-    private static func ackText(from raw: Data) -> String {
+    /// Strips the 8-byte frame header from a received frame and returns the
+    /// payload as String. Called from background dispatch closures so it has
+    /// to be `nonisolated` — pure data transform, no actor state touched.
+    private nonisolated static func ackText(from raw: Data) -> String {
         let payload = raw.count > 8 ? raw.dropFirst(8) : raw
         return String(data: payload, encoding: .utf8) ?? "ok"
     }
