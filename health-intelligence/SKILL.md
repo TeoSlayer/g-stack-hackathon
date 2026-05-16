@@ -5,9 +5,10 @@ description: |
   Evidence-based intervention retrieval for health metric alerts.
   Given triggered alerts (metric_id + value + band from the iOS app) or a
   free-text query, returns ranked intervention recommendations sourced from
-  17 peer-reviewed systematic reviews and meta-analyses.
+  17 peer-reviewed systematic reviews and meta-analyses. Results are reranked
+  by ZeroEntropy before surfacing to any LLM or downstream consumer.
   Use when the user asks about health interventions, when a metric alert fires,
-  or when agent-b needs evidence to back a coaching recommendation.
+  or when a reasoning agent needs evidence-backed recommendations.
 tags:
   - health
   - retrieval
@@ -22,16 +23,24 @@ allowed-tools:
 
 ## What it does
 
-Queries a local RAG system backed by 17 peer-reviewed papers (systematic
-reviews + meta-analyses). Two retrieval paths:
+Three-stage pipeline:
 
-| Path | Trigger | Speed | Notes |
-|---|---|---|---|
-| `alert_match` | `alerts` list with `metric_id` | <5 ms | Exact lookup, score=1.0 |
-| `semantic` | `query` string | ~50 ms | Cosine similarity over 384-dim embeddings |
+1. **Retrieval** — 17 peer-reviewed papers (systematic reviews + meta-analyses),
+   89 interventions indexed as `all-MiniLM-L6-v2` embeddings cached locally.
+2. **Reranking** — ZeroEntropy reranks the candidate set before returning results,
+   improving precision without changing the retrieval index.
+3. **Formatting** — returns ranked `RetrievedIntervention` objects with full
+   citation metadata plus a ready-to-send LLM coaching prompt.
 
-Both paths return `RetrievedIntervention` objects ranked by relevance, plus
-an LLM-ready prompt string with full citation context.
+Two retrieval paths feed the reranker:
+
+| Path | Trigger | Notes |
+|---|---|---|
+| `alert_match` | `alerts` list with `metric_id` | Exact lookup, score=1.0 — no embeddings needed |
+| `semantic` | `query` string | Cosine similarity over 384-dim embeddings |
+
+ZeroEntropy reranking integration is pending; the server currently returns
+retrieval scores directly.
 
 ## Starting the server
 

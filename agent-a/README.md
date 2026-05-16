@@ -1,33 +1,71 @@
-# agent-a — Collector
+# agent-a — Health Ingest
 
-The warehouse. Listens on Pilot for envelopes from any source (today: the
-HealthSync iOS app), dedupes by sample UUID, writes to DuckDB, publishes a
-"new facts" event so Agent B knows there's something to react to.
-
-No LLM. No reasoning. No Telegram. Boring, durable, fast.
-
-## Why a separate agent
-
-Ingest has different SLOs than conversation: it must accept writes
-continuously, never block on a slow reasoning step, restart cleanly, and
-survive a crashed Coach without losing data. By splitting the warehouse off
-from the chat agent, either side can be debugged, restarted, or rewritten
-without touching the other. Coach treats Collector as just another tool.
+Receives HealthKit envelopes from the iOS app over Pilot Protocol, dedupes by
+sample UUID, writes to DuckDB, and broadcasts change events so downstream
+consumers know new data has landed. No LLM, no reasoning, no conversation.
 
 ## What it owns
 
 | Concern | How |
 |---|---|
-| Receiving envelopes from sources | Pilot listener on port `1001` |
-| Deduplication | sample UUID is the primary key in DuckDB; `INSERT OR IGNORE` |
+| Inbound envelopes | Pilot listener on port `1001` |
+| Deduplication | Sample UUID is the primary key; `INSERT OR IGNORE` |
 | Durability | DuckDB file on disk (`~/.openclaw/workspace/health/facts.duckdb`) |
-| Query API for Coach | Pilot port `1003`, SQL-string request → result-set reply |
-| Change notification to Coach | Pilot port `1004`, emits `{table, new_count, since_ts}` after every batch commit |
-| Acknowledgements | Pilot reply on the source's ack-port with the list of UUIDs accepted |
+| Query API | Pilot port `1003` — SQL-string request → result-set reply |
+| Change notifications | Pilot port `1004` — `{table, new_count, since_ts}` after every batch commit |
+| Acknowledgements | Pilot reply to source's ack-port with accepted/duplicate/rejected UUIDs |
+| Long-term memory | G-Brain rollup: derives daily markdown summaries, writes to shared gbrain instance |
 
-## The envelope format
+## Why Pilot for the phone→agent link
 
-Sources send length-prefixed JSON over Pilot port 1001:
+The iOS app embeds `pilot-swift` — a precompiled Go Pilot daemon inside the
+app sandbox. This means the iPhone itself is a Pilot node. Envelopes travel
+over an encrypted, NAT-traversed tunnel directly to Agent A. No homelab port
+forwarding, no VPN configuration, no public HTTP endpoint needed. Pilot
+handles NAT traversal, identity, and delivery confirmation.
+
+## Why a separate agent
+
+Ingest has different SLOs than reasoning: it must accept writes continuously,
+never block on a slow LLM step, and survive consumer crashes without losing
+data. Keeping the warehouse isolated means either side restarts independently.
+
+## Status: core built
+
+| Module | Status | What it does |
+|---|---|---|
+| `schema.py` | ✓ Done | Pydantic models: Envelope, RouteChunk, Ack, Query, QueryResult, ChangeEvent. Version gating (accepts v and v-1). |
+| `warehouse.py` | ✓ Done | DuckDB single-writer, MVCC-read. Tables: batches, samples, workouts, route_points, route_chunks_inflight. |
+| `ingester.py` | ✓ Done | `process_envelope()` — validates, dedupes by UUID + batch_id, returns IngestResult. |
+| `inbox_watcher.py` | ✓ Done | Polls inbox, classifies messages, dispatches to ingester or sql_gate. |
+| `sql_gate.py` | ✓ Done | Read-only SQL gate. Rejects writes at parse time. Clamps LIMIT ≤ 10,000. |
+| `change_event.py` | ✓ Done | Broadcasts ChangeEvent after each batch commit. |
+| `trust.py` | ✓ Done | Source/consumer allowlists + version gating. |
+| `server.py` | ✓ Done | Entry point. Wires all modules; CLI args for inbox, warehouse path, trust config. |
+| `transport.py` | ⚠ Partial | `FileTransport` (test mode) done; `PilotctlTransport` (production) stubbed. |
+| `gbrain_rollup.py` | ⚠ Partial | Framework present; summaries not yet connected. |
+
+**84 unit tests passing.** 8 E2E scenarios verified: clean ingest, bad
+samples, batch replay, route assembly, SQL query, change events.
+
+## Running
+
+```sh
+# Unit + integration tests
+pytest agent-a/tests/
+
+# E2E with mock envelopes
+./scripts/run_e2e.sh
+
+# Real-time daemon
+python -m collector.server
+
+# Query the warehouse via stub Pilot
+python -m coach query "SELECT type, COUNT(*) FROM samples GROUP BY type"
+python -m coach readiness   # 7-day HRV average
+```
+
+## Wire format (envelope)
 
 ```json
 {
@@ -43,114 +81,103 @@ Sources send length-prefixed JSON over Pilot port 1001:
       "unit": "ms",
       "start_utc": 1701234567.0,
       "end_utc":   1701234567.0,
-      "source_name": "Apple Watch",
-      "metadata": {"device": "Apple Watch Series 9"}
+      "source_name": "Apple Watch"
     }
   ],
   "metadata": {
-    "location": {"lat": 47.61, "lon": -122.33, "accuracy_m": 12.5, "ts": 1701234560.0}
+    "location": {"lat": 47.61, "lon": -122.33, "accuracy_m": 12.5}
   }
 }
 ```
 
-Ack reply (Pilot back to source) carries the same `batch_id` and the array of
-accepted UUIDs. Source advances its HK anchor only after the ack lands.
+Ack: `{batch_id, accepted: [...], duplicates: [...], rejected: [...]}`.
+The iOS app advances its HealthKit anchor only after receiving this ack.
 
-## DuckDB schema (sketch)
+## Pilot ports
+
+| Port | Direction | Message | Peer |
+|---|---|---|---|
+| 1001 | inbound | Envelope | iOS health-sync |
+| 1002 | outbound | Ack | iOS health-sync |
+| 1003 | bidirectional | SQL Query + QueryResult | Agent B, health-intelligence |
+| 1004 | outbound | ChangeEvent | Agent B |
+
+## DuckDB schema
 
 ```sql
 CREATE TABLE samples (
-  uuid           VARCHAR PRIMARY KEY,
-  source         VARCHAR  NOT NULL,
-  device_id      VARCHAR  NOT NULL,
-  type           VARCHAR  NOT NULL,
-  value          DOUBLE,
-  unit           VARCHAR,
-  start_utc      DOUBLE   NOT NULL,
-  end_utc        DOUBLE   NOT NULL,
-  source_name    VARCHAR,
-  metadata       JSON,
-  ingested_utc   DOUBLE   NOT NULL DEFAULT epoch(current_timestamp)
+  uuid         VARCHAR PRIMARY KEY,
+  source       VARCHAR NOT NULL,
+  device_id    VARCHAR NOT NULL,
+  type         VARCHAR NOT NULL,
+  value        DOUBLE,
+  unit         VARCHAR,
+  start_utc    DOUBLE  NOT NULL,
+  end_utc      DOUBLE  NOT NULL,
+  source_name  VARCHAR,
+  metadata     JSON,
+  ingested_utc DOUBLE  NOT NULL DEFAULT epoch(current_timestamp)
 );
 CREATE INDEX samples_type_start ON samples (type, start_utc);
 
 CREATE TABLE batches (
-  batch_id       VARCHAR PRIMARY KEY,
-  source         VARCHAR NOT NULL,
-  device_id      VARCHAR NOT NULL,
-  envelope_meta  JSON,
-  ingested_utc   DOUBLE NOT NULL,
-  sample_count   INTEGER NOT NULL
+  batch_id      VARCHAR PRIMARY KEY,
+  source        VARCHAR NOT NULL,
+  device_id     VARCHAR NOT NULL,
+  envelope_meta JSON,
+  ingested_utc  DOUBLE  NOT NULL,
+  sample_count  INTEGER NOT NULL
 );
 ```
 
-DuckDB is single-writer; the Collector serializes inserts. Reads (from Coach)
-can run concurrently — DuckDB supports it.
+Single writer, MVCC reads. Agent B and health-intelligence query concurrently
+without blocking ingest.
 
-## Why DuckDB
+## G-Brain rollup
 
-| Alternative | Why not |
-|---|---|
-| Postgres | Service to run + tune + back up. Overkill for one-writer analytical workload. |
-| SQLite | No columnar storage; analytical aggregates over millions of HK samples get slow. |
-| Parquet files | No transactional dedupe; you write the dedupe layer yourself. |
-| Vector DB | Wrong shape — we want temporal range scans, not nearest-neighbour. |
+After each batch commit, `gbrain_rollup.py` derives a markdown summary of the
+new data (e.g. "HRV trended down 9% over 5 nights, sleep median 6h") and
+appends it to the shared G-Brain instance. Both agents share this memory;
+patterns can be recalled semantically without re-querying raw DuckDB.
 
-DuckDB hits the sweet spot: one file on disk, columnar, transactional,
-analytical, SQL, libraries in every language OpenClaw can shell out to.
+## Recoverability
 
-## Recoverability story
+- **Crash mid-batch:** DuckDB rolls back. Envelope not acked; iOS retries
+  with same UUIDs. `INSERT OR IGNORE` absorbs the replay.
+- **Disk full:** Insert fails, ack withheld, iOS outbox queues until disk
+  recovers. Outbox is bounded by `CHUNKING.md` cap.
+- **Consumer down:** Agent A keeps ingesting; ChangeEvents queue until
+  consumers reconnect via Pilot.
 
-- **Collector crashes mid-batch:** DuckDB transaction rolls back. Source's
-  envelope isn't acked, so on its next retry the same UUIDs arrive again.
-  `INSERT OR IGNORE` handles the dedupe.
-- **Disk full:** Insert fails, no ack, source's outbox grows until disk
-  comes back. Bounded by source's own outbox cap.
-- **Schema migration:** DuckDB supports `ALTER TABLE`; one-shot migration
-  script in `migrations/`. Sources don't care about Collector's schema.
-- **Backup:** `cp facts.duckdb /backup/` while Collector is paused; or use
-  DuckDB's online `COPY` to Parquet during a quiet window.
+## What's next
 
-## Status
+- `PilotctlTransport`: replace file-based test stub with real `pilotctl`
+  subprocess calls for production overlay use.
+- Source identity allowlist enforcement from config file.
+- G-Brain rollup outputs wired to actual daily summaries.
 
-Not built yet. Phase 2 in the project plan.
-
-Planned structure (when it lands):
+## Where it fits
 
 ```
-agent-a/
-├── README.md               this file
-├── skill.json              OpenClaw skill manifest
-├── src/
-│   ├── ingest.ts           Pilot listener + envelope handler
-│   ├── query.ts            SQL bridge for Coach
-│   ├── events.ts           change-notification publisher
-│   └── schema.sql          initial DuckDB schema
-├── migrations/             SQL migrations, versioned
-└── package.json
+iPhone (health-sync)
+    │  Pilot 1001 — encrypted envelope, NAT-traversed
+    ▼
+┌───────────────────────────────────┐
+│  agent-a  (this directory)        │
+│  Pilot 1001 ← envelopes           │
+│  Pilot 1002 → acks                │
+│  Pilot 1003 ↔ SQL query API       │
+│  Pilot 1004 → change events       │
+│  DuckDB  facts.duckdb             │
+│  G-Brain rollup                   │
+└──────────┬────────────────────────┘
+           │ Pilot 1003 / 1004
+     ┌─────┴─────────────────────────┐
+     │                               │
+  agent-b                    health-intelligence
+  (GSuite ingest)             (RAG + ZeroEntropy)
 ```
 
-## Where it sits in the bigger picture
-
-```
-HealthSync iOS ──┐
-                 │  Pilot 1001 (envelopes)
-Future sources ──┤
-                 ▼
-            ┌─────────────────────────────┐
-            │  agent-a (this directory)   │
-            │  ─────────────────────────  │
-            │  Pilot 1001 ← envelopes     │
-            │  Pilot 1003 → query API     │
-            │  Pilot 1004 → change events │
-            │  DuckDB on disk             │
-            └────────────┬────────────────┘
-                         │
-                         │ Pilot 1003 + 1004
-                         ▼
-                   agent-b (Coach)
-```
-
-See [../README.md](../README.md) for the full project, [../agent-b](../agent-b)
-for the conversational front-end, and [../infra](../infra) for the shared
-setup (DuckDB location, Pilot trust bootstrap, gbrain init).
+See [`../README.md`](../README.md) for the full picture,
+[`SCHEMA.md`](SCHEMA.md) for the wire format,
+[`CHUNKING.md`](CHUNKING.md) for outbox/retry details.

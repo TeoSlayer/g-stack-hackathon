@@ -1,11 +1,12 @@
 # infra
 
 Everything the two agents need to run that isn't agent code: OpenClaw
-configuration, Pilot trust bootstrap, DuckDB and gbrain storage layout,
-Telegram bot registration, environment variables, runbook.
+configuration, Pilot trust bootstrap, DuckDB and G-Brain storage layout,
+Google OAuth credentials, health-intelligence server config, environment
+variables, runbook.
 
 This directory is the operator's surface. If you're setting the system up on
-a fresh homelab box, you start here.
+a fresh homelab box, start here.
 
 ## What lives here
 
@@ -14,10 +15,12 @@ a fresh homelab box, you start here.
 | OpenClaw daemon config | `openclaw/gateway.toml` (template) |
 | Skill manifests (paths to `agent-a/`, `agent-b/`) | `openclaw/skills.toml` |
 | Pilot identity for the homelab node | `pilot/identity.json` — generated, never committed |
-| Pilot trust list (which iOS device IDs are accepted) | `pilot/trust.json` |
-| DuckDB database file | `data/facts.duckdb` (created on first ingest) |
-| gbrain PGLite database | `data/gbrain.db` (created by `setup-gbrain`) |
-| Telegram bot token | `.env` (gitignored), referenced by Coach |
+| Pilot trust list (iOS device IDs + agent identities) | `pilot/trust.json` |
+| Agent A health warehouse | `data/health.duckdb` (created on first ingest) |
+| Agent B GSuite warehouse | `data/gsuite.duckdb` (created on first GSuite pull) |
+| G-Brain PGLite database (shared) | `data/gbrain.db` (created by `setup-gbrain`) |
+| Google OAuth credentials | `.env` (gitignored) — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` |
+| ZeroEntropy API key | `.env` — `ZEROENTROPY_API_KEY` |
 | systemd / launchd unit files | `services/` |
 | Backup script | `scripts/backup.sh` |
 | Health-check script | `scripts/healthcheck.sh` |
@@ -54,24 +57,39 @@ Verify:
 openclaw doctor
 ```
 
-### 3. Create the Telegram bot
+### 3. Configure Google OAuth for Agent B
 
-1. In Telegram, message [@BotFather](https://t.me/BotFather) → `/newbot`.
-2. Save the token it gives you.
-3. Add it to `infra/.env`:
+Agent B pulls Calendar, Drive, and Gmail via OAuth 2.0. You need a refresh
+token with the appropriate scopes.
 
-   ```sh
-   TELEGRAM_BOT_TOKEN=123456:ABC...
-   ```
-
-4. Register the channel with OpenClaw:
+1. Create a project in [Google Cloud Console](https://console.cloud.google.com).
+2. Enable APIs: Google Calendar, Google Drive, Gmail.
+3. Create an OAuth 2.0 Client ID (Desktop app type).
+4. Run the one-time consent flow to get a refresh token:
 
    ```sh
-   openclaw channel add telegram --token $TELEGRAM_BOT_TOKEN
+   python agent-b/scripts/google_oauth.py \
+     --client-id $GOOGLE_CLIENT_ID \
+     --client-secret $GOOGLE_CLIENT_SECRET
    ```
 
-5. Open the bot in Telegram and send `/start` so OpenClaw learns your
-   chat ID. The Coach skill will scope replies to that chat.
+5. Add credentials to `infra/.env`:
+
+   ```sh
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   GOOGLE_REFRESH_TOKEN=...
+   ```
+
+### 3b. Configure ZeroEntropy for health-intelligence reranking
+
+```sh
+# Add to infra/.env
+ZEROENTROPY_API_KEY=ze-...
+```
+
+health-intelligence reads this at startup. If absent, the server falls back
+to raw retrieval scores (no reranking).
 
 ### 4. Initialize gbrain
 
@@ -140,9 +158,17 @@ openclaw skill enable agent-b
 
 OpenClaw daemon reloads. From this point:
 
-- Agent A is listening on Pilot port 1001 (ingest), 1003 (query), 1004 (events)
-- Agent B is listening on Pilot port 1005 (insights inbox from Coach side)
-- Agent B is also listening on Telegram
+- Agent A is listening on Pilot port 1001 (health ingest), 1003 (query API), 1004 (change events)
+- Agent B is running the GSuite pull loop and subscribing to Agent A on port 1004
+
+### 8. Start health-intelligence server
+
+```sh
+cd ../health-intelligence
+.venv/bin/python server.py &   # http://127.0.0.1:8741
+```
+
+Or install as a launchd/systemd unit from `services/`.
 
 ## Operational tasks
 
@@ -165,10 +191,12 @@ ongoing ingest.
 Verifies:
 
 - OpenClaw daemon responding (`openclaw doctor`)
-- Both skills running (`openclaw skill list`)
-- DuckDB readable + sample count moved in the last hour
-- Pilot daemon up + at least one trusted peer
-- Telegram bot replies to a `/ping`
+- Both agent skills running (`openclaw skill list`)
+- Agent A DuckDB readable + sample count moved in the last hour
+- Agent B DuckDB readable + GSuite sync timestamp recent
+- G-Brain MCP endpoint reachable
+- Pilot daemon up + iOS device in trusted peers
+- health-intelligence server at port 8741 returning `{"status":"ok"}`
 
 Exit code `0` if green, non-zero with the failing component named.
 
@@ -190,21 +218,23 @@ No data loss across a full restart.
 
 ```
 infra/
-├── README.md                    this file
-├── .env.example                 template; copy to .env and fill in
+├── README.md                       this file
+├── .env.example                    template; copy to .env and fill in
 ├── openclaw/
-│   ├── gateway.toml             OpenClaw gateway config
-│   └── skills.toml              skill registry pointers
+│   ├── gateway.toml                OpenClaw gateway config
+│   └── skills.toml                 skill registry pointers
 ├── pilot/
-│   ├── identity.json            generated, NEVER commit
-│   ├── trust.json               peer trust list
-│   └── config.toml              auto-approve, keepalive, etc.
+│   ├── identity.json               generated, NEVER commit
+│   ├── trust.json                  peer trust list (iOS + agent identities)
+│   └── config.toml                 auto-approve, keepalive, etc.
 ├── data/
-│   ├── facts.duckdb             Agent A's warehouse
-│   └── gbrain/                  PGLite directory
+│   ├── health.duckdb               Agent A's health warehouse
+│   ├── gsuite.duckdb               Agent B's GSuite warehouse
+│   └── gbrain/                     G-Brain PGLite directory (shared)
 ├── services/
-│   ├── com.openclaw.gateway.plist  launchd unit (macOS)
-│   └── openclaw.service             systemd unit (Linux)
+│   ├── com.openclaw.gateway.plist  launchd unit — OpenClaw daemon (macOS)
+│   ├── openclaw.service            systemd unit (Linux)
+│   └── health-intelligence.plist   launchd unit — FastAPI server (macOS)
 └── scripts/
     ├── backup.sh
     ├── healthcheck.sh
@@ -213,24 +243,28 @@ infra/
 
 ## Status
 
-Skeleton only — none of the templates or scripts above exist on disk yet.
-This README pre-specifies them so they can be written in the right place when
-the agents land in phase 2 and 3.
+Spec complete — templates and scripts materialise as agents are deployed.
+Agent A core is built (84 tests passing); Agent B framework is built (GSuite
+pull pending); health-intelligence server is running. The infra layer wires
+them together for production.
 
 ## Threat model in one paragraph
 
 The homelab box is the trusted root. Anything that lands on its disk is
 considered yours. The iOS device is trusted via Pilot identity (Ed25519,
-persistent on the device). External services touched: Telegram (sees the
-conversation, not the data) and whichever LLM provider Coach is configured
-with (sees each turn's prompt, which may include redacted data summaries).
-Everything else is local. If Telegram or the LLM provider matters for your
-threat model, swap them; the architecture doesn't bind to either.
+persistent on the device). External services touched: Google (OAuth pull —
+sees metadata, not raw health data), ZeroEntropy (sees intervention query
+text for reranking), and whichever LLM is used for synthesis (sees prompt
+summaries). Everything else — DuckDB, G-Brain, the Pilot overlay — is local.
+Any of the three external services can be swapped out; the architecture
+doesn't bind to them.
 
 ## See also
 
-- [../README.md](../README.md) — overall project and the loop it closes
-- [../health-sync](../health-sync) — the iOS source
-- [../pilot-swift](../pilot-swift) — the Swift Pilot SDK that the iOS app embeds
-- [../agent-a](../agent-a) — Collector spec
-- [../agent-b](../agent-b) — Coach spec
+- [`../README.md`](../README.md) — overall architecture and data flow
+- [`../health-sync`](../health-sync) — iOS app (HealthKit + 27 on-device models)
+- [`../pilot-swift`](../pilot-swift) — Swift Pilot SDK embedded in the iOS app
+- [`../agent-a`](../agent-a) — Health ingest agent (built)
+- [`../agent-b`](../agent-b) — GSuite ingest agent (framework built)
+- [`../health-intelligence`](../health-intelligence) — RAG + ZeroEntropy retrieval server
+- [`../gstack-ios`](../gstack-ios) — iOS dev skill pack (used to build health-sync)

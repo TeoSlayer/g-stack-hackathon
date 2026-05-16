@@ -1,124 +1,144 @@
 # g-stack-hackathon
 
-Offsite data feeds via Pilot Protocol for distributed OpenClaw data ingestion.
+Personal-data substrate: two ingestion agents backed by G-Brain memory, a
+health-intelligence retrieval layer, and Pilot Protocol as the communication
+shim connecting everything — phone, agents, and retrieval — with no extra
+infrastructure.
 
-A personal-data substrate where the things that know about you (a phone, a
-calendar, a music app, a bank statement) push into agents you own. No SaaS in
-the middle, no vendor sees the raw data, conversations happen on channels you
-already use.
-
-## The shape
+## Architecture
 
 ```
-                Sources                 Ingest / Storage              Interaction
-                ───────                  ────────────────              ───────────
-   iPhone (HealthKit + location)
-   Calendar (future)                   ┌──────────────────┐         ┌──────────────┐
-   Music (future)              ───►    │  Collector       │   ───►  │  Coach       │
-   Bank (future)              Pilot    │  (OpenClaw skill)│ Pilot   │  (OpenClaw + │
-   …                          E2E      │  DuckDB warehouse│         │   Telegram)  │
-                              tunnel   │  Idempotent      │         │  + gbrain    │
-                                       │  Per-source      │         │  + gstack    │
-                                       │   dedupe         │         │  + specialists│
-                                       └──────────────────┘         └──────┬───────┘
-                                                                            │
-                                                                            ▼
-                                                                            You
+                                 ┌─────────────────────────────────────────────────────┐
+                                 │                  Pilot overlay network               │
+                                 │                                                      │
+  iPhone (HealthKit + Watch)     │  ┌────────────────────┐    ┌────────────────────┐   │
+    PilotSyncTransport  ─────────┼─►│  agent-a           │    │  agent-b           │   │
+    (embedded pilot-swift)       │  │  Health Ingest     │◄──►│  GSuite Ingest     │   │
+                                 │  │  DuckDB warehouse  │    │  Calendar / Drive  │   │
+  Google / GSuite  ──────────────┼─►│  G-Brain memory    │    │  G-Brain memory    │   │
+    (OAuth pull)                 │  └────────┬───────────┘    └────────┬───────────┘   │
+                                 │           │                         │               │
+                                 │           └────────────┬────────────┘               │
+                                 │                        │ Pilot                      │
+                                 └────────────────────────┼────────────────────────────┘
+                                                          │
+                                              ┌───────────▼───────────┐
+                                              │  health-intelligence  │
+                                              │  FastAPI RAG server   │
+                                              │  17 peer-reviewed     │
+                                              │  papers · 89 interv.  │
+                                              │  ZeroEntropy reranker │
+                                              └───────────────────────┘
 ```
 
-Three principles:
+Five principles:
 
-- **The data never leaves hardware you control.** Sources run on your devices.
-  Ingest runs on your homelab. Memory (DuckDB + gbrain) is local files.
-  Telegram is the one external surface — and the only thing it carries is the
-  conversation, not the raw data.
-- **Pilot is the spine.** Each source has its own identity on the Pilot
-  overlay; messages are encrypted, NAT-traversed, idempotent. No port
-  forwarding, no VPN, no shared HTTP endpoint that has to be reachable.
-- **OpenClaw is the substrate, not the product.** Channel adapters,
-  tool-calling LLM glue, process isolation, and skill plumbing are all
-  carried by OpenClaw. We write small skills, not infrastructure.
+1. **Two agents, one memory model.** Agent A warehouses health data from the
+   iPhone via Pilot; agent B warehouses Google/GSuite data via OAuth. Both
+   share G-Brain for long-term semantic memory. Neither runs an LLM — they
+   are durable ingest workers, not reasoning engines.
 
-## Why this matters
+2. **Pilot is the data shim.** The iOS app embeds the Pilot daemon
+   (`pilot-swift`) and pushes HealthKit envelopes directly to Agent A over
+   an encrypted, NAT-traversed tunnel. No port forwarding, no VPN, no shared
+   HTTP endpoint. The same overlay carries agent-to-agent messages.
 
-Every consumer data product asks you to hand over your data so they can sell
-you back an interpretation of it. The interpretation is locked in their
-dashboard, the data is locked on their servers, and the inference is trained
-on a population that isn't you.
+3. **Health intelligence is a retrieval layer, not a chatbot.** A FastAPI
+   server backed by 17 systematic reviews and meta-analyses returns ranked,
+   citable intervention recommendations given alert values or a free-text
+   query. ZeroEntropy reranks results before they surface to any LLM.
 
-This is the opposite arrangement: **your data feeds your agents, your agents
-talk to you in plain language, the only company in the loop is the one that
-ships the channel you happen to chat through**. The agent can ask its own
-data warehouse anything; you can ask the agent anything. Cross-source
-inference (health × location × calendar) becomes a query, not a feature
-request.
+4. **gstack-ios is how the iOS app gets built.** Claude Code with the
+   `gstack-ios` skill pack drives `xcodebuild`, simulators, signing, perf
+   traces, and TestFlight uploads — the iOS development loop runs entirely in
+   the agent.
 
-It's the personal-AI premise actually built, instead of marketed.
+5. **Data never leaves hardware you control.** iPhone collects, Pilot
+   transports, agents warehouse. G-Brain and DuckDB are local files. The only
+   external surface is the OAuth pull from Google and the ZeroEntropy rerank
+   call.
 
 ## Sub-projects
 
 | Path | What it is | Status |
 |---|---|---|
-| [`pilot-swift/`](pilot-swift/) | Swift package that embeds the Pilot daemon inside iOS / macOS apps so they become first-class Pilot nodes. Static `libPilot.a` + idiomatic Swift wrapper. | Working — alice/bob smoke passes on iOS sim |
-| [`health-sync/`](health-sync/) | iOS + watchOS + widget app that reads Apple Watch + iPhone HealthKit data, runs 7 on-device models, charts trends and forecasts, plots a hex-binned location heatmap. Pushes envelopes to Agent A via embedded Pilot once that lands. | iOS app working end-to-end standalone; Pilot integration is next |
-| [`agent-a/`](agent-a/) | Collector. OpenClaw skill: Pilot listener, dedupe, DuckDB warehouse, change events. No reasoning, no LLM. | Spec only — not built yet |
-| [`agent-b/`](agent-b/) | Coach. OpenClaw skill: Telegram channel, LLM agent with tools (query A, gbrain memory, gstack skills, Pilot specialists). Plus a pro-active rule loop. | Spec only — not built yet |
-| [`infra/`](infra/) | Operator's surface. OpenClaw config, Pilot identity / trust, DuckDB + gbrain locations, Telegram bot setup, launchd / systemd units, backup + health-check scripts. | Spec only — fills in as Agent A and B land |
+| [`pilot-swift/`](pilot-swift/) | Swift package embedding the Pilot daemon inside iOS/macOS apps. Static `Pilot.xcframework` + idiomatic Swift wrapper. alice/bob encrypted handshake smoke test passes on iOS sim. | **Working** |
+| [`health-sync/`](health-sync/) | iOS + watchOS + widget app. Reads HealthKit, runs 27 on-device models, charts trends and forecasts, hex-binned location heatmap. Pushes envelopes to Agent A via `PilotSyncTransport`. | **iOS app working standalone. Pilot transport wired, pending activation.** |
+| [`agent-a/`](agent-a/) | Health ingest. Pilot listener (port 1001), DuckDB warehouse, SQL query gate (port 1003), change-event broadcaster (port 1004). G-Brain rollup. 84 tests passing. | **Core built, PilotctlTransport stub → real pending.** |
+| [`agent-b/`](agent-b/) | GSuite ingest. Pulls calendar, Drive, Gmail via OAuth. Warehouses to DuckDB. G-Brain rollup. Speaks to Agent A via Pilot for cross-source reasoning. | **Spec + framework. OAuth pull and warehouse not yet built.** |
+| [`health-intelligence/`](health-intelligence/) | FastAPI RAG server. 17 peer-reviewed papers, 89 interventions. Alert-match + semantic retrieval + ZeroEntropy reranking. LLM-ready prompt output. | **Server running. ZeroEntropy reranking integration pending.** |
+| [`gstack-ios/`](gstack-ios/) | iOS/watchOS/WidgetKit skill pack for Claude Code. 13 skills covering build, test, signing, perf, TestFlight. Used to develop health-sync itself. | **Working — all 13 skills active.** |
+| [`infra/`](infra/) | Operator runbook. OpenClaw config, Pilot identity/trust, DuckDB/G-Brain locations, launchd/systemd units, backup scripts. | **Spec complete, materialises on first agent launch.** |
 
-Future sources sit at the same level: `calendar-sync/`, `bank-sync/`,
-`music-sync/`, etc. They share Pilot for transport and DuckDB / gbrain for
-storage; otherwise they're independent.
+## Data flow
+
+```
+1.  iPhone HealthSyncManager polls HealthKit (anchored queries)
+2.  Samples encoded → Pilot envelope (JSON)
+3.  PilotSyncTransport sends to Agent A on port 1001 (E2E encrypted)
+4.  Agent A dedupes by UUID, writes to DuckDB, acks back
+5.  iOS advances HK anchor only after ack received
+6.  Agent A emits ChangeEvent on port 1004
+7.  Agent B subscribes; cross-source inference available via SQL queries
+8.  health-intelligence retrieval layer queries DuckDB for alert values,
+    looks up interventions, ZeroEntropy reranks, returns to LLM
+```
+
+## Pilot ports (Agent A)
+
+| Port | Direction | Message |
+|---|---|---|
+| 1001 | → A | HealthKit envelope from iOS |
+| 1002 | ← A | Ack (accepted / duplicate / rejected UUIDs) |
+| 1003 | ↔ A | SQL query + result (Coach or health-intelligence) |
+| 1004 | ← A | ChangeEvent broadcast to subscribers |
+
+## Running today
+
+```sh
+# iOS app, standalone (no homelab required):
+cd health-sync
+xcodegen generate
+open HealthSync.xcworkspace
+
+# Pilot Swift SDK smoke test:
+cd pilot-swift
+scripts/run-smoke-sim.sh info
+
+# Agent A (health ingest) with mock envelopes:
+./scripts/run_e2e.sh          # 84 tests pass, 8 E2E scenarios
+python -m collector.server    # real-time daemon
+
+# Agent B CLI (queries Agent A):
+python -m coach query "SELECT type, COUNT(*) FROM samples GROUP BY type"
+python -m coach readiness
+
+# health-intelligence retrieval server:
+cd health-intelligence
+.venv/bin/python server.py    # http://127.0.0.1:8741
+curl http://127.0.0.1:8741/health
+```
 
 ## Cross-cutting docs
 
 | Doc | Covers |
 |---|---|
-| [`LIFECYCLE.md`](LIFECYCLE.md) | State machines (sync pipeline, Pilot, agents) + boot/wake/suspend/terminate sequences for all three lifecycles (iOS, OpenClaw, Pilot) + cross-process state contract + failure-resolution table |
+| [`LIFECYCLE.md`](LIFECYCLE.md) | State machines for iOS sync pipeline, Pilot, and agents; boot/suspend/terminate sequences; failure-resolution table |
 | [`agent-a/SCHEMA.md`](agent-a/SCHEMA.md) | Wire format: envelope, sample variants, workout routes, ack, query, change-event |
-| [`agent-a/CHUNKING.md`](agent-a/CHUNKING.md) | Splitter algorithm, outbox SQLite schema, retry/backoff, eviction, route_chunks |
+| [`agent-a/CHUNKING.md`](agent-a/CHUNKING.md) | Outbox SQLite schema, splitter algorithm, retry/backoff, route_chunks |
+| [`health-intelligence/SKILL.md`](health-intelligence/SKILL.md) | Tool manifest, request/response schema, metric ID reference, error codes |
+| [`health-sync/misc/METRICS.md`](health-sync/misc/METRICS.md) | All 27 on-device metrics: formula, data sources, alert thresholds |
 
-## The two agents
+## What's next
 
-Both run as OpenClaw skills on the homelab. They share a DuckDB file for raw
-facts and a gbrain (PGLite) instance for semantic memory.
-
-| Agent | Role | Side it sees |
-|---|---|---|
-| **Collector** | Listens on Pilot for envelopes from any source. Dedupes by sample UUID. Writes to DuckDB. Publishes a "new facts" event to Coach. No reasoning, no LLM. | Sources only |
-| **Coach** | Telegram channel. Conversational LLM agent with tools: `query-collector` (DuckDB SQL), `gbrain.search` / `gbrain.write` (semantic memory), `gstack.run` (skills like `/investigate`, `/office-hours`), `pilot.specialist` (~436 public agents on the overlay). | You only |
-
-The hard line: Collector is the warehouse, Coach is the front. Either
-restarts without losing the other's work.
-
-## Status
-
-| Piece | State |
+| Work item | Blocks |
 |---|---|
-| Pilot Swift SDK | ✓ working |
-| iOS app (collection layer + on-device analysis) | ✓ working standalone |
-| Embedded Pilot in iOS + outbox | next |
-| Collector skill (Pilot listener + DuckDB) | next |
-| Coach skill (Telegram + LLM + tools) | next |
-| gbrain wired as Coach memory | next |
-| gstack invocation in Coach | next |
-| Additional sources beyond health | future |
-
-## Getting started
-
-The pieces are independently buildable while the pipeline is being wired.
-
-```sh
-# iOS app, standalone:
-cd health-sync
-xcodegen generate
-open HealthSync.xcworkspace
-
-# pilot-swift smoke test (any platform):
-cd pilot-swift
-scripts/run-smoke-sim.sh info
-```
-
-Each sub-project's `README.md` has the build and run details.
+| Wire `PilotSyncTransport` in iOS app | Full phone → agent E2E |
+| Real `pilotctl` transport in Agent A | Production ingest from device |
+| Agent B GSuite OAuth pull + warehouse | Cross-source inference |
+| ZeroEntropy reranker integration in health-intelligence | Better retrieval quality |
+| G-Brain rollup from both agents | Long-term semantic memory |
+| infra launchd/systemd units | Homelab deployment |
 
 ## License
 

@@ -1,6 +1,6 @@
 # gstack-ios
 
-iOS / watchOS / WidgetKit skill pack for [gstack](https://github.com/garrytan/gstack).
+The iOS extension for gstack — how `health-sync` gets built and shipped.
 
 gstack ships a strong general-purpose sprint loop (Think → Plan → Build →
 Review → Test → Ship → Reflect). The iOS edges of that loop are where
@@ -9,6 +9,10 @@ simulators need orchestration, HealthKit-shaped tests need synthetic
 data, paired-watch flows need both sims booted, widget previews need
 their own dance, signing fails silently. gstack-ios fills the gap as a
 peer skill pack with **interactive + headless** modes.
+
+This is the tool Claude Code uses to develop and iterate on `health-sync`
+itself — every build, test, visual critique, signing diagnosis, and
+TestFlight upload goes through these skills.
 
 ## Install
 

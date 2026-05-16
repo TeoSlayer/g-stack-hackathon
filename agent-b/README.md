@@ -1,176 +1,153 @@
-# agent-b — Coach
+# agent-b — GSuite Ingest
 
-The front. The agent you actually talk to. Receives Telegram messages, calls
-tools (Agent A's data, gbrain memory, gstack skills, Pilot specialists),
-composes an answer, replies. Also runs a pro-active rule loop that pings you
-when one of the seven models trips a band.
+Pulls data from Google Workspace (Calendar, Drive, Gmail) via OAuth, warehouses
+it to DuckDB, and keeps a G-Brain rollup in sync with Agent A's health data.
+Speaks to Agent A over Pilot Protocol for cross-source reasoning.
 
-## Why a separate agent
-
-Conversation has different needs than ingest: bursty, compute-heavy (an LLM
-turn), can take seconds, and gets restarted whenever the LLM provider or
-prompt changes. Splitting the chat agent off from the warehouse keeps Agent A
-small, fast, and uncontaminated by LLM concerns.
-
-Coach is the only thing in this system that talks to you. It's also the only
-thing that talks to external services (Telegram, optionally hosted LLMs,
-Pilot specialists). Concentrating outbound surface in one component bounds
-the trust audit.
+No LLM at the ingest layer. The ingest worker is durable and stateless;
+reasoning happens above it.
 
 ## What it owns
 
 | Concern | How |
 |---|---|
-| Telegram conversation | OpenClaw's built-in Telegram channel adapter |
-| LLM turn | OpenClaw's model layer (default: whatever you configured in `openclaw onboard`) |
-| Reading user data | Tool: `query_collector(sql)` → Pilot port 1003 on Agent A |
-| Reacting to new data | Subscriber on Pilot port 1004 (Agent A's change events) |
-| Long-term recall | Tool: `gbrain_search(query)`, `gbrain_write(note)` via MCP |
-| Multi-step reasoning | Tool: `gstack_run(skill, args)` shells out to `~/Development/openclaw/...` skills |
-| External context | Tool: `pilot_specialist(name, query)` (~436 public agents on the overlay) |
-| Pro-active nudges | Cron-style rule loop running the 7 models against Collector |
-| Rate limiting | Per-rule cooldown (e.g. one wear-watch reminder per 4 h) + global mute via `/mute` Telegram command |
+| Google Calendar pull | OAuth 2.0 refresh token; incremental sync via `nextSyncToken` |
+| Google Drive pull | Changed-files feed; metadata + plain-text extraction |
+| Gmail pull | Label-filtered threads; sender + subject + snippet |
+| Warehousing | DuckDB tables: `calendar_events`, `drive_files`, `gmail_threads` |
+| Cross-source queries | Pilot port `1003` on Agent A — read-only SQL access to health samples |
+| Change notifications | Listens on Pilot port `1004` from Agent A for health ChangeEvents |
+| Long-term memory | G-Brain rollup: daily summaries written to shared gbrain instance alongside Agent A's health summaries |
 
-## Tool surface
+## Why this agent exists
 
-The LLM sees these as native tools at every turn:
+Health data alone is partial. Knowing that HRV dropped 15% is useful; knowing
+it dropped on a week with 14 calendar events, a flight, and no recovery day is
+actionable. Agent B brings the scheduling and context layer. Both agents write
+to the same G-Brain so a reasoning step can pull "what was happening that week"
+without joining across two separate systems.
 
-```
-query_collector(sql: string) -> { rows: [...], schema: {...} }
-   Read-only SQL against Agent A's DuckDB. The LLM composes the query.
+## Why Pilot for agent-to-agent links
 
-gbrain_search(query: string, k?: int) -> [{ note, ts, score }]
-   Semantic search over past summaries, observed patterns, user-flagged facts.
+Both agents run on the homelab. Pilot gives them encrypted, identity-verified
+channels to each other with no shared socket, no auth token, no internal HTTP
+routing table. Agent B subscribes to Agent A's change events on port 1004;
+Agent A queries Agent B's data on port 1003. Either agent can restart without
+the other noticing beyond a brief reconnect.
 
-gbrain_write(note: string, tags?: [string]) -> { id }
-   Persist a new fact / summary for future recall. Only Coach writes here —
-   one voice keeps the brain coherent.
+## Status: spec + framework
 
-gstack_run(skill: string, args: object) -> { stdout, stderr, exit_code }
-   Spawn an opinionated reasoning skill. E.g. gstack_run("investigate",
-   {topic: "HRV crashed last Tuesday"}) → multi-step probe.
+| Concern | Status |
+|---|---|
+| `client.py` — query Agent A via Pilot | ✓ Done |
+| `__main__.py` — CLI: `coach query`, `coach watch`, `coach readiness` | ✓ Done |
+| `gbrain_rollup.py` — daily summary framework | ⚠ Partial (framework, not yet wired) |
+| GSuite OAuth pull | ✗ Not yet built |
+| Calendar / Drive / Gmail warehouse tables | ✗ Not yet built |
+| G-Brain write from rollup | ✗ Not yet built |
 
-pilot_specialist(name: string, query: string) -> object
-   Ask a Pilot directory specialist. E.g. weather, transit, dev metadata.
-   Encrypted, identity-routed, no API keys.
-```
+## Running (what works today)
 
-## Pro-active rule loop
+```sh
+# Query Agent A's health warehouse
+python -m coach query "SELECT type, COUNT(*) FROM samples GROUP BY type"
 
-Runs every N minutes (default 15). For each rule:
+# Subscribe to Agent A's change events
+python -m coach watch
 
-1. Pull required data from Agent A (`query_collector`).
-2. Compute the model (sleep regularity, autonomic balance, sedentary stress,
-   cognitive recovery debt, burnout CUSUM, circadian drift, kalman HRV).
-3. If band is `.warn` or `.bad` AND cooldown for this rule has expired:
-   - compose a one-sentence Telegram message
-   - send via Telegram channel
-   - `gbrain_write` the nudge so we have history
-   - stamp the cooldown timestamp
-
-User can `/snooze 4h` any rule by replying to its message.
-
-## Conversation examples
-
-```
-You:    how was my sleep this week
-Coach:  Median 6h 12m, two nights under 5h (Tue, Thu). Your trailing-7d HRV is
-        down 9% — looks like the short nights are the proximate cause.
-        Want to look at when the late nights started?
-
-You:    yes
-Coach:  Bedtimes drifted later starting Sunday. Mann-Kendall p=0.03 on the
-        last 14 nights — that's a real drift, not noise. The model says
-        circadian drift; the fix is a fixed lights-out time.
-
-You:    did this happen in march
-Coach:  [searches gbrain] Yes — similar 2-week window in March, you flagged
-        it as "post-launch crunch." HRV recovered the week after you cut
-        evening screens. Want me to remind you of the protocol?
+# 7-day HRV readiness
+python -m coach readiness
 ```
 
-## Why OpenClaw and not custom
+These work because `client.py` is complete. GSuite pull is the next phase.
 
-OpenClaw already does:
+## Planned data tables
 
-- Channel adapters (Telegram, plus Signal/Matrix/Slack/Discord/iMessage if
-  you outgrow Telegram — same skill, different transport)
-- LLM model selection + fallback (OAuth ChatGPT/Codex, API keys, local
-  llama.cpp via the same interface)
-- Tool calling + thread state + per-user message routing
-- Process isolation per skill, daemon-managed restarts
+```sql
+-- calendar_events
+CREATE TABLE calendar_events (
+  event_id     VARCHAR PRIMARY KEY,
+  calendar_id  VARCHAR NOT NULL,
+  title        VARCHAR,
+  start_utc    DOUBLE  NOT NULL,
+  end_utc      DOUBLE,
+  all_day      BOOLEAN,
+  attendees    INTEGER,
+  location     VARCHAR,
+  synced_utc   DOUBLE  NOT NULL
+);
 
-If we wrote Coach from scratch we'd reimplement all of that. OpenClaw is the
-substrate; Coach is a ~200-line skill on top.
+-- drive_files
+CREATE TABLE drive_files (
+  file_id      VARCHAR PRIMARY KEY,
+  name         VARCHAR NOT NULL,
+  mime_type    VARCHAR,
+  modified_utc DOUBLE,
+  owner        VARCHAR,
+  shared       BOOLEAN,
+  snippet      TEXT,
+  synced_utc   DOUBLE  NOT NULL
+);
 
-## Recoverability story
-
-- **Coach crashes mid-conversation:** OpenClaw restarts the skill. Thread
-  state is in OpenClaw's session store; conversation resumes. The user's
-  message is replayed if it was unacked.
-- **Telegram unreachable:** Outbound replies fail; OpenClaw retries. User
-  sees silence until Telegram recovers. Pro-active nudges that fire during
-  outage are written to gbrain so they survive.
-- **LLM provider down:** OpenClaw's model failover picks an alternate; if
-  none available, Coach replies with a degraded "checking back in a few min"
-  message instead of silence.
-- **Agent A down:** `query_collector` returns an error; Coach tells the
-  user the warehouse is offline rather than hallucinating data.
-
-## Status
-
-Not built yet. Phase 3 in the project plan, after Agent A is up.
-
-Planned structure (when it lands):
-
-```
-agent-b/
-├── README.md
-├── skill.json               OpenClaw skill manifest
-├── src/
-│   ├── coach.ts             main skill: message handler + LLM glue
-│   ├── tools/
-│   │   ├── query-collector.ts
-│   │   ├── gbrain.ts
-│   │   ├── gstack.ts
-│   │   └── pilot-specialist.ts
-│   ├── rules/               pro-active rule loop
-│   │   ├── sleep-regularity.ts
-│   │   ├── autonomic-balance.ts
-│   │   ├── sedentary-stress.ts
-│   │   ├── cognitive-debt.ts
-│   │   ├── burnout-cusum.ts
-│   │   ├── circadian-drift.ts
-│   │   └── kalman-hrv.ts
-│   └── prompts/             system + rule-specific prompt templates
-└── package.json
+-- gmail_threads
+CREATE TABLE gmail_threads (
+  thread_id    VARCHAR PRIMARY KEY,
+  subject      VARCHAR,
+  sender       VARCHAR,
+  snippet      TEXT,
+  labels       JSON,
+  date_utc     DOUBLE  NOT NULL,
+  synced_utc   DOUBLE  NOT NULL
+);
 ```
 
-The seven rule files port the on-device models (currently in
-`../health-sync/HealthSync/Models.swift`) to TypeScript so they can run
-against Agent A's DuckDB.
+## G-Brain rollup
 
-## Where it sits in the bigger picture
+After each GSuite sync pass, `gbrain_rollup.py` writes a markdown summary
+of the day's scheduling context ("3 back-to-back calls, travel block
+7–10 Jun, 2 late-night emails sent after 22:00") to the shared G-Brain
+instance. Agent A writes health summaries to the same store. Cross-source
+reasoning — "HRV dropped on weeks with dense calendars" — is then a semantic
+G-Brain query, not a join.
+
+## Pilot ports
+
+| Port | Direction | Message | Peer |
+|---|---|---|---|
+| 1003 | outbound | SQL Query | Agent A |
+| 1003 | inbound | QueryResult | Agent A |
+| 1004 | inbound | ChangeEvent (health data) | Agent A |
+
+## What's next
+
+1. Google OAuth flow + refresh token persistence (`.env` + infra secrets)
+2. Incremental Calendar pull with `nextSyncToken`
+3. Drive changed-files feed with plain-text extraction
+4. Gmail label-filtered thread sync
+5. DuckDB schema + ingestion for all three sources
+6. G-Brain rollup outputs wired to actual daily summaries
+
+## Where it fits
 
 ```
-                   You
-                    ▲
-                    │  Telegram
-                    ▼
-            ┌─────────────────────────────┐
-            │  agent-b (this directory)   │
-            │  ─────────────────────────  │
-            │  OpenClaw skill             │
-            │  Tools: query, gbrain,      │
-            │          gstack, specialists│
-            │  Rule loop on a schedule    │
-            └─────┬───────────────────────┘
-                  │
-                  │ Pilot 1003 (query)
-                  │ Pilot 1004 (events)
-                  ▼
-              agent-a (Collector)
+Google Workspace (OAuth pull)
+    │
+    ▼
+┌───────────────────────────────────┐
+│  agent-b  (this directory)        │
+│  OAuth ← GSuite incremental sync  │
+│  Pilot 1003 → query Agent A       │
+│  Pilot 1004 ← health ChangeEvents │
+│  DuckDB  gsuite.duckdb            │
+│  G-Brain rollup                   │
+└──────────┬────────────────────────┘
+           │ Pilot
+     ┌─────┴─────────────────────────┐
+     │                               │
+  agent-a                    health-intelligence
+  (health ingest)             (RAG + ZeroEntropy)
 ```
 
-See [../README.md](../README.md) for the full project, [../agent-a](../agent-a)
-for the warehouse, and [../infra](../infra) for the shared setup.
+See [`../README.md`](../README.md) for the full picture and
+[`../infra`](../infra) for the shared setup (Pilot identity, G-Brain path,
+DuckDB locations, OAuth credentials).
