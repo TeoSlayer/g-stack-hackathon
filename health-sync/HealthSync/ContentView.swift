@@ -195,9 +195,6 @@ private struct ActivityAndControlsView: View {
                     HStack {
                         Label("Sync now", systemImage: "arrow.clockwise")
                         Spacer()
-                        Text("\(HealthSyncManager.backfillWindowDays) d")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
                         if manager.isWorking { ProgressView().controlSize(.small) }
                     }
                 }
@@ -205,13 +202,7 @@ private struct ActivityAndControlsView: View {
                 Button {
                     confirmDeepBackfill = true
                 } label: {
-                    HStack {
-                        Label("Full backfill…", systemImage: "arrow.counterclockwise.circle")
-                        Spacer()
-                        Text("\(HealthSyncManager.deepBackfillWindowDays) d")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
+                    Label("Full backfill…", systemImage: "arrow.counterclockwise.circle")
                 }
                 .disabled(manager.isWorking || !canSync)
                 Button {
@@ -228,22 +219,22 @@ private struct ActivityAndControlsView: View {
             } header: {
                 Text("Sync (\(manager.transportKind.displayName))")
             } footer: {
-                Text("**Sync now** ships only samples newer than the per-type anchor. **Full backfill** resets all anchors and re-walks the last \(HealthSyncManager.deepBackfillWindowDays) days — useful after a reinstall or a server rebuild.")
+                Text("**Sync now** ships only samples newer than the per-type anchor. **Full backfill** resets all anchors and re-walks the last \(HealthSyncManager.backfillWindowDays) days — useful after a reinstall or a server rebuild.")
                     .font(.caption2)
             }
-            .confirmationDialog("Run a full \(HealthSyncManager.deepBackfillWindowDays)-day backfill?",
+            .confirmationDialog("Reset anchors and re-walk \(HealthSyncManager.backfillWindowDays) days?",
                                 isPresented: $confirmDeepBackfill,
                                 titleVisibility: .visible) {
-                Button("Re-walk \(HealthSyncManager.deepBackfillWindowDays) days") {
+                Button("Re-walk \(HealthSyncManager.backfillWindowDays) days") {
                     Task {
                         await manager.syncAll(reason: "manual-backfill",
-                                              backfillDays: HealthSyncManager.deepBackfillWindowDays,
+                                              backfillDays: HealthSyncManager.backfillWindowDays,
                                               resetAnchors: true)
                     }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This will resend every sample from the last \(HealthSyncManager.deepBackfillWindowDays) days. Expect a few minutes of heavy network use on Watch + iPhone.")
+                Text("Every per-type anchor will be wiped and the last \(HealthSyncManager.backfillWindowDays) days of HealthKit data re-sent. Expect a few minutes of heavy network use.")
             }
             Section("Recent events") {
                 if manager.recentSyncs.isEmpty && manager.isWorking {

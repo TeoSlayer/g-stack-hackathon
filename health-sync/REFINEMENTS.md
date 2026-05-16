@@ -161,7 +161,8 @@ unrelated state.
 `syncAll(reason:backfillDays:resetAnchors:)` overload takes a per-run
 override of the cutoff and an opt-in anchor wipe. The Activity tab grows
 a second button — **Full backfill** — under the existing Sync section,
-gated by a confirmation dialog that names the window in days
-(`deepBackfillWindowDays = 365`). One-shot: after the run, the active
-window snaps back to the 30-day default.
+gated by a confirmation dialog. The window stays at the canonical 30-day
+horizon (anything wider exceeds the on-device models' modelled range);
+the difference is purely "wipe anchors + re-walk", which covers the
+"server lost data, resend everything we still hold locally" case.
 

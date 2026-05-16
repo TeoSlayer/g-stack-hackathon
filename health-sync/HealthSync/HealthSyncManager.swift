@@ -160,15 +160,12 @@ final class HealthSyncManager: ObservableObject {
     /// predicate so we never haul years of historical HK data through the
     /// outbox. Matches `CHUNKING.md` — 30 days covers every on-device model at
     /// full quality; the heatmap + CUSUM grow forward as new samples arrive.
+    /// The Activity "Full backfill" button re-walks this same 30-day window
+    /// but resets anchors first — covers the "server lost data, resend" case
+    /// without widening past the modelled horizon.
     static let backfillWindowDays: Int = 30
 
-    /// Window the user gets when they pick "Full backfill" from the manual
-    /// sync menu — one year covers seasonality, gives every model enough room
-    /// to train its baseline, and stays under the Pilot 60-KB-per-envelope
-    /// cap since `chunkSize` paging is unaffected.
-    static let deepBackfillWindowDays: Int = 365
-
-    /// Per-run override for `anchoredQuery`'s cutoff. Reset to nil after each
+    /// Per-run override for `anchoredQuery`'s cutoff. Reset after each
     /// `syncAll` so a deep-backfill sweep doesn't accidentally affect the next
     /// observer-driven incremental sync.
     private var activeBackfillDays: Int = HealthSyncManager.backfillWindowDays
