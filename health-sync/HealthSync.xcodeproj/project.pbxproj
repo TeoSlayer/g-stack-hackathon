@@ -23,6 +23,7 @@
 		830CBD7D55890427DD949339 /* WorkoutRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBD7BD21C30D2FFFD6DC1039 /* WorkoutRoutes.swift */; };
 		84DB43705F1E55FB6513C5E9 /* SpecMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C485CA4FF9F125C920940D8 /* SpecMetrics.swift */; };
 		9177A1C6434EAD3BEA113D55 /* LocationSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06352EDD6F3B2147A4B8322B /* LocationSources.swift */; };
+		95C8C80EB28770D35B464514 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B81D5C8500DD3C4903708312 /* OnboardingView.swift */; };
 		961864A58AD969EB7EC458BE /* LocationMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 773BC8C4E6CCD7EB12538F50 /* LocationMapView.swift */; };
 		99B2F9F7962B64C482C93F71 /* Pilot in Frameworks */ = {isa = PBXBuildFile; productRef = 6B5AA7BEAF67C7069E4BF5B1 /* Pilot */; };
 		9F4EB4AC9E8BF07E27316353 /* SyncTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3565E55794B0FBDC4D87397A /* SyncTransport.swift */; };
@@ -70,7 +71,7 @@
 		06352EDD6F3B2147A4B8322B /* LocationSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSources.swift; sourceTree = "<group>"; };
 		0856C60FC0AEC904BAF152E3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1C63F4455A8EC2EA28B11FE0 /* Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Readiness.swift; sourceTree = "<group>"; };
-		1D343810F4B4383E36DAE2F1 /* HealthSync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HealthSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D343810F4B4383E36DAE2F1 /* HealthSync.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HealthSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D4CAA6ED13D9894855579CB /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		206660A9A149FC45E29D4B18 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		23FAD9C91D4296152C4F9AA0 /* SyncEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEndpoint.swift; sourceTree = "<group>"; };
@@ -88,13 +89,14 @@
 		8C485CA4FF9F125C920940D8 /* SpecMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpecMetrics.swift; sourceTree = "<group>"; };
 		98F67ED77DCFA10CCF340FA4 /* PhotosLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotosLocationProvider.swift; sourceTree = "<group>"; };
 		A271D9B5DB8936C294849EAD /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		B81D5C8500DD3C4903708312 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		BB8B22C5FAC8721DFDD9839F /* InfoSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoSheets.swift; sourceTree = "<group>"; };
 		BBD7BD21C30D2FFFD6DC1039 /* WorkoutRoutes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRoutes.swift; sourceTree = "<group>"; };
 		BF591461757E10363BED3905 /* LocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationProvider.swift; sourceTree = "<group>"; };
 		D87C881F7E34724C846C8401 /* TimeSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeSeries.swift; sourceTree = "<group>"; };
 		DAFA7F14A31207ED589CADCA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DB48B32DE1040ED9D8C91994 /* DataTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTypes.swift; sourceTree = "<group>"; };
-		EE163EAE608D81F2A8391A9E /* HealthSyncWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HealthSyncWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE163EAE608D81F2A8391A9E /* HealthSyncWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HealthSyncWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F04405F2295A9C68F9A6A6B6 /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
 		F2FD885AB860E8E3C80B353D /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		F97FFCB67DFC1815C3F1D8EA /* pilot-swift */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "pilot-swift"; path = "../pilot-swift"; sourceTree = SOURCE_ROOT; };
@@ -140,6 +142,7 @@
 				F04405F2295A9C68F9A6A6B6 /* ModelsView.swift */,
 				206660A9A149FC45E29D4B18 /* NetworkMonitor.swift */,
 				53C87B0A573CC55061DC8A4D /* NotificationManager.swift */,
+				B81D5C8500DD3C4903708312 /* OnboardingView.swift */,
 				98F67ED77DCFA10CCF340FA4 /* PhotosLocationProvider.swift */,
 				01CBFDB2956ED71EEE7DF441 /* PilotBoot.swift */,
 				80F2113621E0FAB2306CE5FC /* PilotSyncTransport.swift */,
@@ -242,9 +245,11 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					77355015D52EB5B006E970D9 = {
+						DevelopmentTeam = W83KWX4GJ6;
 						ProvisioningStyle = Automatic;
 					};
 					892A921C4AE312FBC7AB053B = {
+						DevelopmentTeam = W83KWX4GJ6;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -312,6 +317,7 @@
 				1098BC588CD635EFDB480A5E /* ModelsView.swift in Sources */,
 				E31A011359BBC8C2E50E8B0F /* NetworkMonitor.swift in Sources */,
 				C0F7A7E5CC6141AAFF7C5700 /* NotificationManager.swift in Sources */,
+				95C8C80EB28770D35B464514 /* OnboardingView.swift in Sources */,
 				A9BD6E8C6773EA71DE16642F /* PhotosLocationProvider.swift in Sources */,
 				D334BBF1EA03D893B2592F6C /* PilotBoot.swift in Sources */,
 				FB026DA8E2F105689A2468EF /* PilotSyncTransport.swift in Sources */,
@@ -342,7 +348,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = HealthSyncWidget/HealthSyncWidget.entitlements;
-				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				INFOPLIST_FILE = HealthSyncWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -363,7 +368,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = HealthSync/HealthSync.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = HealthSync/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -415,7 +419,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -451,7 +455,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = HealthSync/HealthSync.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = HealthSync/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -503,7 +506,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -530,7 +533,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = HealthSyncWidget/HealthSyncWidget.entitlements;
-				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				INFOPLIST_FILE = HealthSyncWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

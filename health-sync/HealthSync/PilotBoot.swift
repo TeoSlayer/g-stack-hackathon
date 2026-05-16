@@ -61,6 +61,50 @@ final class PilotBoot: ObservableObject {
     @Published private(set) var lastHealthAt:         Date?
     @Published private(set) var lastPingOK:           Bool = false
 
+    /// Rolling telemetry on data-exchange sends — latencies (ms), success/fail
+    /// counts and byte volume. Persisted in-memory only; cleared on app launch
+    /// because the latencies are most useful as a "right now is it healthy?"
+    /// signal, not a long-running KPI.
+    @Published private(set) var telemetry = PilotTelemetry()
+
+    struct PilotTelemetry: Equatable {
+        var sendCount:    Int = 0
+        var failCount:    Int = 0
+        var bytesSent:    Int = 0
+        /// Last N completed sends, in milliseconds, oldest first.
+        var recentLatencyMs: [Int] = []
+        static let cap = 50
+
+        var p50Ms: Int? { percentile(0.50) }
+        var p95Ms: Int? { percentile(0.95) }
+        var failRate: Double {
+            let total = sendCount + failCount
+            return total == 0 ? 0 : Double(failCount) / Double(total)
+        }
+        private func percentile(_ q: Double) -> Int? {
+            guard !recentLatencyMs.isEmpty else { return nil }
+            let sorted = recentLatencyMs.sorted()
+            let idx = min(sorted.count - 1, max(0, Int((Double(sorted.count) * q).rounded(.up)) - 1))
+            return sorted[idx]
+        }
+    }
+
+    /// Append a measured send to the telemetry ring buffer + tally success/fail.
+    private func recordSendOutcome(latencyMs: Int, bytes: Int, success: Bool) {
+        var t = telemetry
+        if success {
+            t.sendCount += 1
+            t.bytesSent += bytes
+            t.recentLatencyMs.append(latencyMs)
+            if t.recentLatencyMs.count > PilotTelemetry.cap {
+                t.recentLatencyMs.removeFirst(t.recentLatencyMs.count - PilotTelemetry.cap)
+            }
+        } else {
+            t.failCount += 1
+        }
+        telemetry = t
+    }
+
     // MARK: - State enums
 
     enum DaemonState: String, CustomStringConvertible {
@@ -293,27 +337,42 @@ final class PilotBoot: ObservableObject {
         }
 
         let frame = Self.makeBinaryFrame(payload: data)
+        let started = Date()
 
-        let ack: String = try await withCheckedThrowingContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let conn = try p.dial(addr: addr, port: 1001,
-                                          timeoutMs: UInt64(timeout * 1000))
-                    defer { try? conn.close() }
-                    _ = try conn.write(frame)
-                    let raw = try conn.read(maxBytes: 4096)
-                    cont.resume(returning: Self.ackText(from: raw))
-                } catch {
-                    cont.resume(throwing: PilotBootError.sendFailed("dataexchange: \(error)"))
+        do {
+            let ack: String = try await withCheckedThrowingContinuation { cont in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        let conn = try p.dial(addr: addr, port: 1001,
+                                              timeoutMs: UInt64(timeout * 1000))
+                        defer { try? conn.close() }
+                        _ = try conn.write(frame)
+                        let raw = try conn.read(maxBytes: 4096)
+                        cont.resume(returning: Self.ackText(from: raw))
+                    } catch {
+                        cont.resume(throwing: PilotBootError.sendFailed("dataexchange: \(error)"))
+                    }
                 }
             }
+            let now = Date()
+            let latency = Int(now.timeIntervalSince(started) * 1000)
+            // Server-side error reply ("ERR ...") still counts as a transport
+            // failure for telemetry purposes — the bytes left the device but
+            // the ack says we shouldn't trust the delivery.
+            recordSendOutcome(latencyMs: latency,
+                              bytes: frame.count,
+                              success: !ack.hasPrefix("ERR"))
+            lastSendAt = now
+            lastSuccessfulSendAt = now
+            UserDefaults.standard.set(now, forKey: PilotBoot.kLastSendAtKey)
+            return ack
+        } catch {
+            let latency = Int(Date().timeIntervalSince(started) * 1000)
+            recordSendOutcome(latencyMs: latency,
+                              bytes: frame.count,
+                              success: false)
+            throw error
         }
-
-        let now = Date()
-        lastSendAt = now
-        lastSuccessfulSendAt = now
-        UserDefaults.standard.set(now, forKey: PilotBoot.kLastSendAtKey)
-        return ack
     }
 
     /// Dataexchange frame types (mirrors internal/dataexchange constants).

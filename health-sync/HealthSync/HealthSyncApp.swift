@@ -29,14 +29,10 @@ struct HealthSyncApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AppRoot()
                 .environmentObject(manager)
                 .environmentObject(net)
                 .environmentObject(notif)
-                .task {
-                    await manager.bootstrap()
-                    await notif.refreshAuth()
-                }
                 // iOS can reap the embedded Pilot daemon while the app is
                 // suspended. On foreground entry, restart it (no-op if already
                 // running) so the next sync doesn't silently fail at the
@@ -46,6 +42,31 @@ struct HealthSyncApp: App {
                         Task { await PilotBoot.shared.ensureRunning() }
                     }
                 }
+        }
+    }
+}
+
+/// First-launch gate. `didOnboard` is the bit that tells us whether the user
+/// has been through the three-page intro. Until it flips, the HK access sheet
+/// stays sealed — onboarding triggers it itself once the user has been given
+/// context. After it flips, ContentView takes over and `.task` re-runs
+/// `bootstrap()` (no-op the second time around, see HealthSyncManager).
+private struct AppRoot: View {
+    @EnvironmentObject var manager: HealthSyncManager
+    @EnvironmentObject var notif: NotificationManager
+    @AppStorage("didOnboard") private var didOnboard: Bool = false
+
+    var body: some View {
+        Group {
+            if didOnboard {
+                ContentView()
+                    .task {
+                        await manager.bootstrap()
+                        await notif.refreshAuth()
+                    }
+            } else {
+                OnboardingView(done: $didOnboard)
+            }
         }
     }
 }

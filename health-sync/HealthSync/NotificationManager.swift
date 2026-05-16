@@ -67,6 +67,33 @@ final class NotificationManager: ObservableObject {
         }
     }
 
+    /// Fire a one-line alert when readiness drops *into* the depleted band
+    /// from a healthier one. We intentionally don't notify on every recompute
+    /// or on lateral moves (moderate→moderate). The rate-limit gate avoids
+    /// hammering the user when a flapping HRV value bounces around the
+    /// moderate/depleted threshold.
+    private var lastReadinessNotificationAt: Date?
+    private let readinessNotifyMinInterval: TimeInterval = 6 * 3600  // 6h
+
+    func evaluateReadiness(previous: ReadinessReading.Band,
+                           current:  ReadinessReading) async {
+        guard alertsEnabled, authState == .granted else { return }
+        guard previous != .unknown, previous != .depleted,
+              current.band == .depleted else { return }
+        if let last = lastReadinessNotificationAt,
+           Date().timeIntervalSince(last) < readinessNotifyMinInterval {
+            return
+        }
+        lastReadinessNotificationAt = Date()
+        let body: String = {
+            if let pct = current.percentOfBaseline {
+                return "Overnight HRV \(Int(pct * 100))% of your 7-day baseline. \(current.advice)"
+            }
+            return current.advice
+        }()
+        await fire(title: "Readiness dropped — take it easy", body: body)
+    }
+
     func test() async {
         await fire(title: "HealthSync test", body: "Notifications are working.")
     }

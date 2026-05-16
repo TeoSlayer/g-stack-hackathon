@@ -121,6 +121,22 @@ struct DiagnosticsView: View {
             row("Last successful send",
                 pilot.lastSuccessfulSendAt.map { Self.fmt($0) } ?? "—",
                 ok: pilot.lastSuccessfulSendAt != nil)
+            // Rolling send telemetry — captures the "is the pipe actually
+            // healthy?" signal that lastSuccessfulSendAt alone can't tell you
+            // (e.g. one cached success vs sustained throughput).
+            let tel = pilot.telemetry
+            row("Sends ok / fail",
+                "\(tel.sendCount) / \(tel.failCount)",
+                ok: tel.failRate < 0.1)
+            if let p50 = tel.p50Ms {
+                row("Send latency p50", "\(p50) ms", ok: p50 < 1500)
+            }
+            if let p95 = tel.p95Ms {
+                row("Send latency p95", "\(p95) ms", ok: p95 < 5000)
+            }
+            if tel.bytesSent > 0 {
+                row("Bytes shipped", Self.fmtBytes(tel.bytesSent), ok: true)
+            }
             row("Last handshake",
                 pilot.lastHandshakeAt.map { Self.fmt($0) } ?? "—",
                 ok: pilot.lastHandshakeAt != nil)
@@ -257,6 +273,15 @@ struct DiagnosticsView: View {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
         return f.string(from: d)
+    }
+
+    private static func fmtBytes(_ n: Int) -> String {
+        switch abs(n) {
+        case ..<1_000:      return "\(n) B"
+        case ..<1_000_000:  return String(format: "%.1f KB", Double(n) / 1_000)
+        case ..<1_000_000_000: return String(format: "%.1f MB", Double(n) / 1_000_000)
+        default:            return String(format: "%.1f GB", Double(n) / 1_000_000_000)
+        }
     }
 
     private var healthKitSection: some View {

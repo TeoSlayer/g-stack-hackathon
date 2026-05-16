@@ -110,6 +110,22 @@ final class HealthSyncManager: ObservableObject {
     }()
     @Published var pilotPeerNodeID:  UInt32 = UInt32(UserDefaults.standard.integer(forKey: "pilotPeerNodeID"))
 
+    // MARK: background-run telemetry
+    //
+    // BGTask completion is otherwise invisible to the user — the system silently
+    // wakes us, we sync, and the only trace is a row in `recentSyncs`. Persist
+    // last-run timestamps explicitly so Settings/Activity can answer "did
+    // background refresh actually run since I last opened the app?".
+
+    @Published var lastBackgroundRunAt: Date? = {
+        let t = UserDefaults.standard.double(forKey: "lastBackgroundRunAt")
+        return t > 0 ? Date(timeIntervalSince1970: t) : nil
+    }()
+    @Published var lastBackgroundRunResult: String =
+        UserDefaults.standard.string(forKey: "lastBackgroundRunResult") ?? "—"
+    @Published var lastBackgroundRunKind: String =
+        UserDefaults.standard.string(forKey: "lastBackgroundRunKind") ?? "—"
+
     /// Build the active transport on demand. Each call returns a fresh value
     /// so a Settings toggle takes effect immediately on the next sync.
     private var transport: any SyncTransport {
@@ -154,7 +170,13 @@ final class HealthSyncManager: ObservableObject {
 
     // MARK: bootstrap
 
+    /// Set on first successful call so re-entry from a second `.task` (e.g.
+    /// onboarding triggered HK auth, then ContentView's `.task` fires) is a
+    /// no-op instead of re-prompting / re-installing observers.
+    private var didBootstrap = false
+
     func bootstrap() async {
+        if didBootstrap { return }
         guard HKHealthStore.isHealthDataAvailable() else {
             authorizationStatus = "Not available"
             currentActivity = "HealthKit unavailable"
@@ -184,6 +206,7 @@ final class HealthSyncManager: ObservableObject {
         currentActivity = "Installing observers…"
         startObservers()
         scheduleBackgroundRefresh()
+        didBootstrap = true
         // Prompt for location once, right after HK — the user is already in
         // "granting permissions" mode and a second dialog reads as expected.
         LocationProvider.shared.requestAuth()
@@ -321,7 +344,10 @@ final class HealthSyncManager: ObservableObject {
         recordEvent(kind: "sync", success: true, message: "syncAll done: +\(grandTotal) samples (\(reason))")
         await NotificationManager.shared.evaluateSyncHealth(
             lastSuccess: lastSyncDate, serverReachable: true)
+        let previousBand = readiness.band
         readiness = await Readiness.compute(store: store, cache: cachedSeries)
+        await NotificationManager.shared.evaluateReadiness(
+            previous: previousBand, current: readiness)
         await refreshDerivedState()
         await publishWidgetSnapshot(lastBatchSamples: grandTotal)
     }
@@ -625,7 +651,11 @@ final class HealthSyncManager: ObservableObject {
             await syncAll(reason: "bg-refresh")
         }
         task.expirationHandler = { op.cancel() }
-        Task { _ = await op.value; task.setTaskCompleted(success: true) }
+        Task {
+            _ = await op.value
+            await recordBackgroundRun(kind: "refresh", expired: op.isCancelled)
+            task.setTaskCompleted(success: !op.isCancelled)
+        }
     }
 
     func handleBackgroundProcessing(_ task: BGProcessingTask) {
@@ -635,7 +665,25 @@ final class HealthSyncManager: ObservableObject {
             await syncAll(reason: "bg-processing")
         }
         task.expirationHandler = { op.cancel() }
-        Task { _ = await op.value; task.setTaskCompleted(success: true) }
+        Task {
+            _ = await op.value
+            await recordBackgroundRun(kind: "processing", expired: op.isCancelled)
+            task.setTaskCompleted(success: !op.isCancelled)
+        }
+    }
+
+    /// Persist that a BGTask just finished so the user can see "last bg run
+    /// 23 min ago" in Activity. `expired` distinguishes the two ways a BGTask
+    /// can finish — clean exit vs iOS hitting the expiration handler.
+    private func recordBackgroundRun(kind: String, expired: Bool) async {
+        let now = Date()
+        lastBackgroundRunAt = now
+        lastBackgroundRunKind = kind
+        lastBackgroundRunResult = expired ? "expired"
+                                          : (lastSyncResult.isEmpty ? "ok" : lastSyncResult)
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: "lastBackgroundRunAt")
+        UserDefaults.standard.set(lastBackgroundRunResult, forKey: "lastBackgroundRunResult")
+        UserDefaults.standard.set(kind, forKey: "lastBackgroundRunKind")
     }
 
     // MARK: settings

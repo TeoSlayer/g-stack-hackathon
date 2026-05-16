@@ -229,6 +229,14 @@ private struct ActivityAndControlsView: View {
             Section("Health data") {
                 LabeledContent("HealthKit", value: manager.authorizationStatus)
             }
+            Section {
+                BackgroundRunRow()
+            } header: {
+                Text("Background refresh")
+            } footer: {
+                Text("iOS decides when to wake HealthSync in the background — typically every 1–6 h depending on usage. If this hasn't run for a day, check **Settings → General → Background App Refresh**.")
+                    .font(.caption2)
+            }
         }
         .navigationTitle("Activity")
         .navigationBarTitleDisplayMode(.inline)
@@ -258,6 +266,50 @@ private struct ActivityAndControlsView: View {
         if pilot.daemonState != .running   { return "Pilot daemon isn't running. Restart it from Settings." }
         if !pilot.trustState.canSend       { return "Pilot trust not established. Open Settings → Pilot → Establish trust, then have the homelab run `pilotctl approve`." }
         return ""
+    }
+}
+
+/// One-line row showing when iOS last woke the app in the background and
+/// whether the sync that ran inside that window succeeded. The OS won't tell
+/// the user this themselves so it's a frequent source of "is this thing
+/// even running?" support questions — keep it on-screen.
+private struct BackgroundRunRow: View {
+    @EnvironmentObject var manager: HealthSyncManager
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                if let when = manager.lastBackgroundRunAt {
+                    Text("Last wake-up")
+                    Spacer()
+                    Text(when, style: .relative)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Not woken yet by iOS")
+                    Spacer()
+                    Text("—").foregroundStyle(.secondary)
+                }
+            }
+            .font(.subheadline)
+            if manager.lastBackgroundRunAt != nil {
+                Text("\(manager.lastBackgroundRunKind) · \(manager.lastBackgroundRunResult)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(color)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+    private var icon: String {
+        guard let when = manager.lastBackgroundRunAt else { return "moon.zzz" }
+        return Date().timeIntervalSince(when) < 6 * 3600 ? "checkmark.circle.fill"
+                                                         : "clock.badge.exclamationmark"
+    }
+    private var color: Color {
+        guard let when = manager.lastBackgroundRunAt else { return .secondary }
+        if manager.lastBackgroundRunResult == "expired" { return .orange }
+        return Date().timeIntervalSince(when) < 6 * 3600 ? .green : .orange
     }
 }
 
