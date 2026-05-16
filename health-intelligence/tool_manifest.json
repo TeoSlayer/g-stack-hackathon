@@ -1,0 +1,117 @@
+{
+  "name": "retrieve_interventions",
+  "description": "Retrieve evidence-based health interventions from 17 peer-reviewed systematic reviews and meta-analyses. Given triggered metric alerts (from HealthKit on-device analysis) and/or a natural-language description of the user's situation, returns ranked intervention recommendations with full citation metadata and a ready-to-send LLM coaching prompt. Use this whenever a health metric alert fires or the user asks for evidence-backed health advice.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "alerts": {
+        "type": "array",
+        "description": "Metric alerts that have crossed their threshold on-device. Leave empty for semantic-only retrieval.",
+        "items": {
+          "type": "object",
+          "required": ["metric_id", "metric_name", "value", "threshold", "band"],
+          "properties": {
+            "metric_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Metric ID from health_metrics.json"
+            },
+            "metric_name": {
+              "type": "string",
+              "description": "Human-readable metric name, e.g. 'HRV Stability (CV)'"
+            },
+            "value": {
+              "type": "number",
+              "description": "Current computed metric value"
+            },
+            "threshold": {
+              "type": "string",
+              "description": "Alert condition as text, e.g. 'hrv_cv > 0.3'"
+            },
+            "band": {
+              "type": "string",
+              "enum": ["warn", "bad"],
+              "description": "Alert severity"
+            }
+          }
+        }
+      },
+      "query": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 1000,
+        "description": "Free-text description of the user's situation for semantic retrieval, e.g. 'my HRV has been all over the place after a hard training week'. Use in addition to alerts for richer context, or alone for open-ended queries."
+      },
+      "top_k": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 5,
+        "description": "Maximum number of interventions to return from the semantic path"
+      },
+      "min_score": {
+        "type": "number",
+        "minimum": 0.0,
+        "maximum": 1.0,
+        "default": 0.25,
+        "description": "Minimum cosine similarity threshold for semantic results. Raise to 0.4+ for stricter relevance filtering."
+      }
+    },
+    "additionalProperties": false,
+    "anyOf": [
+      {"required": ["alerts"]},
+      {"required": ["query"]}
+    ]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "alerts": {
+        "type": "array",
+        "description": "Echo of the input alerts"
+      },
+      "interventions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "rank":         {"type": "integer"},
+            "text":         {"type": "string", "description": "The intervention recommendation text"},
+            "score":        {"type": "number", "description": "Relevance score: 1.0 = exact alert match, <1 = cosine similarity"},
+            "source":       {"type": "string", "enum": ["alert_match", "semantic"]},
+            "paper_title":  {"type": "string"},
+            "paper_url":    {"type": "string", "format": "uri"},
+            "journal":      {"type": "string"},
+            "year":         {"type": "integer"},
+            "study_type":   {"type": "string"},
+            "metric_names": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      },
+      "llm_prompt": {
+        "type": "string",
+        "description": "Ready-to-send system+user prompt for an LLM to synthesise personalised coaching advice. Pass this directly to Claude or GPT-4. The prompt instructs the LLM to cite sources, be specific with numbers, and only address triggered metrics."
+      },
+      "meta": {
+        "type": "object",
+        "properties": {
+          "elapsed_ms":       {"type": "integer"},
+          "alert_matches":    {"type": "integer"},
+          "semantic_matches": {"type": "integer"},
+          "total":            {"type": "integer"}
+        }
+      }
+    }
+  },
+  "server": {
+    "base_url": "http://127.0.0.1:8741",
+    "endpoints": {
+      "retrieve": "POST /retrieve",
+      "health":   "GET  /health",
+      "help":     "GET  /help"
+    },
+    "start_command": ".venv/bin/python server.py",
+    "working_directory": "/Users/calinteodor/Development/g-stack-hackathon/health-intelligence"
+  }
+}

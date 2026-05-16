@@ -145,9 +145,10 @@ def retrieve_semantic(
 
 
 def retrieve_interventions(
-    alerts: list[TriggeredAlert] | None = None,
-    query:  str | None = None,
-    top_k:  int = 5,
+    alerts:    list[TriggeredAlert] | None = None,
+    query:     str | None = None,
+    top_k:     int = 5,
+    min_score: float = 0.25,
 ) -> list[RetrievedIntervention]:
     """
     Combined retrieval. Alert path runs first; semantic fills gaps.
@@ -164,7 +165,7 @@ def retrieve_interventions(
         results.extend(retrieve_for_alerts(alerts))
 
     if query:
-        semantic = retrieve_semantic(query, top_k=top_k)
+        semantic = retrieve_semantic(query, top_k=top_k, min_score=min_score)
         # skip semantic results already covered by alert-exact matches
         covered_texts = {r.text for r in results}
         results.extend(r for r in semantic if r.text not in covered_texts)
