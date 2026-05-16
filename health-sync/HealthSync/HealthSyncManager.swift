@@ -366,9 +366,25 @@ final class HealthSyncManager: ObservableObject {
         currentActivity = "Syncing Workout (\(index)/\(total))…"
         grandTotal += await syncOne(type: HKObjectType.workoutType(), reason: reason)
 
+        // If the user manually kicked off a sync but anchors were already
+        // caught up, no chunk hits the network and "Sync now" looks like a
+        // no-op. Fire one heartbeat envelope (no samples, just metadata) so
+        // the transport is verifiably exercised end-to-end. Observers and
+        // background runs skip this — they're frequent enough that an
+        // empty-payload POST every few seconds would be wasteful.
+        let isManual = reason.hasPrefix("manual") || reason == "force" || reason == "pull-to-refresh"
+        if isManual && grandTotal == 0 {
+            await sendHeartbeat(reason: reason)
+        }
+
         lastSyncDate = Date()
-        lastSyncResult = "+\(grandTotal) samples (\(reason))"
-        recordEvent(kind: "sync", success: true, message: "syncAll done: +\(grandTotal) samples (\(reason))")
+        lastSyncResult = grandTotal == 0
+            ? "already up to date (\(reason))"
+            : "+\(grandTotal) samples (\(reason))"
+        recordEvent(kind: "sync", success: true,
+                    message: grandTotal == 0
+                        ? "syncAll done: anchors caught up (\(reason))"
+                        : "syncAll done: +\(grandTotal) samples (\(reason))")
         await NotificationManager.shared.evaluateSyncHealth(
             lastSuccess: lastSyncDate, serverReachable: true)
         let previousBand = readiness.band
@@ -582,6 +598,26 @@ final class HealthSyncManager: ObservableObject {
               let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
         else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+
+    /// Ship a zero-sample envelope so the transport is verifiably exercised
+    /// even when anchors are caught up. The server treats this as a no-op
+    /// for ingestion but the round-trip confirms the path. Used by manual
+    /// "Sync now" / "Force sync" taps so debugging-mode users never see a
+    /// silent no-op when re-tapping the button.
+    private func sendHeartbeat(reason: String) async {
+        currentActivity = "Sending heartbeat…"
+        var meta = buildIngestMetadata()
+        meta["kind"]   = "heartbeat"
+        meta["reason"] = reason
+        do {
+            _ = try await transport.ingest(samples: [], metadata: meta)
+            recordEvent(kind: "sync", success: true,
+                        message: "heartbeat ok via \(transportKind.displayName) (\(reason))")
+        } catch {
+            recordEvent(kind: "sync", success: false,
+                        message: "heartbeat failed: \(error.localizedDescription)")
+        }
     }
 
     /// Wipe every `anchor:<HKTypeIdentifier>` UserDefaults entry. Called by
