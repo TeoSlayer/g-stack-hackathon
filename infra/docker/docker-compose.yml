@@ -48,6 +48,9 @@ services:
       PILOT_LISTEN: ":4002"
       PILOT_EMAIL: "agent-b@g-stack.local"
       PILOT_HOSTNAME: "g-stack-agent-b"
+      # Where the Coach sends its queries (agent-a's pilot node):
+      COLLECTOR_NODE_ID: "193232"
+      COACH_REPLY_PORT: "1005"
     ports:
       # OAuth local-loopback callback for Google Calendar sync. Bound to
       # 127.0.0.1 so the host browser can reach it; not exposed publicly.

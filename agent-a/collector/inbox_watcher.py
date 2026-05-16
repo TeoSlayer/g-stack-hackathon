@@ -48,6 +48,8 @@ def unwrap_pilot_transport(obj: dict) -> tuple[dict, Optional[str]]:
       { "agent": "...", "command": "...", "data": "<stringified-json>" }
       { "payload": { ... } }
       { "body": { ... } }
+      { "from": "...", "type": "BINARY", "data_b64": "<base64>", "bytes": N }
+                  ↑ iOS HealthSync envelope: gzipped → base64. We decode here.
       <inner payload directly>
 
     Returns (inner, sender_identity). sender_identity is the Pilot agent that
@@ -57,6 +59,26 @@ def unwrap_pilot_transport(obj: dict) -> tuple[dict, Optional[str]]:
     if not isinstance(obj, dict):
         return obj, None
     sender = obj.get("agent") or obj.get("from") or obj.get("sender")
+
+    # iOS HealthSync ships envelopes as zlib-compressed JSON in base64.
+    # Pilot's daemon writes them to disk as `BINARY-*.json` with shape
+    # `{ from, bytes, data_b64, received_at, type: "BINARY" }`.
+    if isinstance(obj.get("data_b64"), str):
+        try:
+            import base64 as _b64
+            import zlib as _zlib
+            raw = _b64.b64decode(obj["data_b64"])
+            try:
+                decompressed = _zlib.decompress(raw)
+            except _zlib.error:
+                # Pilot can also send raw (uncompressed) binary; assume utf-8 JSON.
+                decompressed = raw
+            inner = json.loads(decompressed)
+            if isinstance(inner, dict):
+                return inner, sender
+        except Exception as e:
+            log.warning("BINARY decode failed: %s", e)
+
     if isinstance(obj.get("data"), str):
         try:
             inner = json.loads(obj["data"])

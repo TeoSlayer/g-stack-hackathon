@@ -10,6 +10,7 @@ xcuserdata/
 *.xcuserdatad/
 *.xcuserstate
 
+bin/
 # gstack-ios skill report cache
 gstack-ios/.cache/
 
@@ -29,12 +30,33 @@ infra/data/test_*/
 infra/pilot/identity.json
 .env
 
+# Per-agent gbrain runtimes (PGLite blobs + macOS bun cache that ends up
+# inside the agent's HOME because we set HOME=<gbrain-*-home> for the CLI).
+# These are LOCAL state, never commit.
+infra/data/gbrain-*/
+infra/data/gbrain-*-home/
+*.pglite/
+**/.gbrain/
+**/Library/Caches/
+**/Library/Logs/
+**/Library/Preferences/
+
 # Secrets — never commit
 infra/secrets/
 infra/docker/pilot-bin/
 
-# OpenClaw per-agent workspace state
+# OpenClaw per-agent workspace state (the runtime files; the manifests
+# under .openclaw/{name}-workspace/IDENTITY.md etc. live there too — if
+# you want those committed, narrow this rule instead of dropping it).
 .openclaw/
 
 # Pilot per-container state
 infra/pilot-data-*/
+
+# Test inboxes / output drops
+infra/data/test_inbox/
+infra/data/test_var/
+
+# Local OAuth tokens (in case anything escapes infra/secrets/)
+**/google-calendar-token.json
+**/google-tokens.json

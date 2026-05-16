@@ -193,11 +193,22 @@ class CoachConfig:
     reply_port: int = 1005
     query_timeout_s: float = 30.0
 
+    @classmethod
+    def from_env(cls) -> "CoachConfig":
+        # 90s default: Pilot's NAT-relay path (registry-mediated) regularly
+        # adds 30–60s of latency on a query/result round-trip. 30s wasn't
+        # enough in practice; bumping is the right call for now.
+        return cls(
+            collector_identity=os.environ.get("COLLECTOR_NODE_ID", "collector"),
+            reply_port=int(os.environ.get("COACH_REPLY_PORT", 1005)),
+            query_timeout_s=float(os.environ.get("COACH_QUERY_TIMEOUT_S", 90)),
+        )
+
 
 class Coach:
     def __init__(self, pilot: Pilot, config: Optional[CoachConfig] = None):
         self.pilot = pilot
-        self.config = config or CoachConfig()
+        self.config = config or CoachConfig.from_env()
 
     def query(self, sql: str, params: Optional[list] = None,
               limit: Optional[int] = None) -> dict:

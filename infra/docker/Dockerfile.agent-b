@@ -5,7 +5,7 @@ FROM python:3.13-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    COACH_INBOX=/var/coach_inbox \
+    COACH_INBOX=/root/.pilot/inbox \
     COLLECTOR_INBOX=/var/collector_inbox \
     COACH_IDENTITY=coach.readiness \
     COACH_PILOT_MODE=pilotctl \
