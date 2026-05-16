@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# headless — run /ios-loop against a goal, unattended.
+#
+# Usage:
+#   gstack-ios/bin/headless "<goal sentence>"
+#
+# Examples:
+#   gstack-ios/bin/headless "verify App"
+#   gstack-ios/bin/headless "ship App to TestFlight"
+#   gstack-ios/bin/headless "find dead wiring in Sources/"
+#
+# Exit codes:
+#   0  loop reported ok: true (goal_achieved)
+#   1  loop reported ok: false (any non-goal-achieved stop)
+#   2  usage error
+#   3  claude CLI not on PATH or returned non-zero before loop ran
+
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  cat >&2 <<EOF
+usage: $0 "<goal sentence>"
+
+examples:
+  $0 "verify App"
+  $0 "ship App to TestFlight"
+  $0 "find dead wiring in Sources/"
+EOF
+  exit 2
+fi
+
+if ! command -v claude >/dev/null 2>&1; then
+  echo "error: 'claude' CLI not on PATH." >&2
+  echo "install Claude Code from https://claude.com/claude-code" >&2
+  exit 3
+fi
+
+GOAL="$*"
+
+SYSTEM_PROMPT=$(cat <<'EOF'
+You are running gstack-ios headlessly. You have access to the /ios-loop
+skill and its sub-skills. Your single job: invoke /ios-loop with the
+provided goal, let it execute end-to-end, and summarise the outcome.
+
+Constraints:
+- Run with stop_on_human: true. If a skill returns a finding that
+  needs human action, halt and surface that finding.
+- Do not chat. Do not preamble. Output only the final summary block
+  (≤ 5 lines) followed by a single status line: 'STATUS: ok' or
+  'STATUS: failed reason=<stopped_because>'.
+- The unified report path goes on the last line of the summary.
+EOF
+)
+
+# claude --print runs one-shot, non-interactive. The system-prompt
+# append makes the agent execute /ios-loop without further user input.
+set +e
+claude --print \
+  --append-system-prompt "$SYSTEM_PROMPT" \
+  "Run: /ios-loop goal=\"$GOAL\" stop_on_human=true"
+loop_exit=$?
+set -e
+
+if [ $loop_exit -ne 0 ]; then
+  echo "error: claude exited $loop_exit before the loop reported." >&2
+  exit 3
+fi
+
+# Parse the last STATUS line to map to a process exit code.
+last_status=$(tail -n 20 /dev/stdin 2>/dev/null | grep -E '^STATUS: ' | tail -n 1 || true)
+case "$last_status" in
+  "STATUS: ok") exit 0 ;;
+  "STATUS: failed"*) exit 1 ;;
+  *) exit 1 ;;
+esac
