@@ -1,0 +1,41 @@
+# agent-a (Collector) — Pilot daemon + Python collector in one container.
+#
+# Real Pilot identity inside the container. /tmp/pilot.sock is isolated by
+# the container filesystem namespace; never collides with the host daemon
+# or with agent-b's container.
+
+FROM python:3.13-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    COLLECTOR_INBOX=/var/collector_inbox \
+    COLLECTOR_VAR=/var/collector_data \
+    PILOT_HOME=/root/.pilot \
+    PILOT_REGISTRY=34.71.57.205:9000 \
+    PILOT_BEACON=34.71.57.205:9001 \
+    PILOT_LISTEN=:4001 \
+    PILOT_EMAIL=agent-a@g-stack.local \
+    PILOT_HOSTNAME=g-stack-agent-a
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Linux arm64 pilot binaries (from infra/docker/pilot-bin/).
+COPY infra/docker/pilot-bin/daemon  /opt/pilot/bin/pilot-daemon
+COPY infra/docker/pilot-bin/pilotctl /opt/pilot/bin/pilotctl
+RUN chmod +x /opt/pilot/bin/pilot-daemon /opt/pilot/bin/pilotctl
+ENV PATH=/opt/pilot/bin:$PATH
+
+WORKDIR /app
+COPY pyproject.toml ./
+COPY agent-a ./agent-a
+COPY agent-b ./agent-b
+RUN pip install --no-cache-dir -e .
+
+COPY infra/docker/entrypoint-agent-a.sh /usr/local/bin/entrypoint-agent-a.sh
+RUN chmod +x /usr/local/bin/entrypoint-agent-a.sh
+
+RUN mkdir -p /var/collector_inbox /var/collector_data /root/.pilot
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint-agent-a.sh"]

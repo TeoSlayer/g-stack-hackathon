@@ -1,0 +1,68 @@
+# Two-container deployment with REAL Pilot daemons.
+#
+# Each container has its own /tmp/pilot.sock (isolated by the container
+# filesystem namespace) and a persistent identity volume at /root/.pilot/.
+# They register as separate identities on the public Pilot registry
+# (34.71.57.205) and route messages over the overlay — no shared inboxes.
+#
+# Build context is the repo root (../..) so both Python packages are available.
+
+services:
+  agent-a:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.agent-a
+    container_name: g-stack-agent-a
+    volumes:
+      - agent_a_data:/var/collector_data       # DuckDB warehouse
+      - agent_a_pilot:/root/.pilot             # Pilot identity + inbox
+      - agent_a_inbox:/var/collector_inbox     # Mock-data drop dir (e2e tests)
+    environment:
+      COLLECTOR_INBOX: /var/collector_inbox    # tests/e2e drop dir
+      COLLECTOR_VAR: /var/collector_data
+      COLLECTOR_POLL: "1.0"
+      # Pilot identity for this container:
+      PILOT_LISTEN: ":4001"
+      PILOT_EMAIL: "agent-a@g-stack.local"
+      PILOT_HOSTNAME: "g-stack-agent-a"
+    networks:
+      - pilot_overlay
+    restart: unless-stopped
+
+  agent-b:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.agent-b
+    container_name: g-stack-agent-b
+    depends_on:
+      - agent-a
+    volumes:
+      - agent_b_pilot:/root/.pilot             # Pilot identity + inbox
+      # Secrets bind-mount (rw so the OAuth flow can cache its token).
+      - ../secrets:/run/secrets:rw
+      # Brain output (shared with the host so `gbrain import` can read it).
+      - ${HOME}/brain:/root/brain
+    environment:
+      COACH_IDENTITY: coach.readiness
+      # Pilot identity for this container:
+      PILOT_LISTEN: ":4002"
+      PILOT_EMAIL: "agent-b@g-stack.local"
+      PILOT_HOSTNAME: "g-stack-agent-b"
+    ports:
+      # OAuth local-loopback callback for Google Calendar sync. Bound to
+      # 127.0.0.1 so the host browser can reach it; not exposed publicly.
+      - "127.0.0.1:9090:9090"
+    networks:
+      - pilot_overlay
+    command: ["watch"]
+    restart: unless-stopped
+
+volumes:
+  agent_a_data:
+  agent_a_pilot:
+  agent_a_inbox:
+  agent_b_pilot:
+
+networks:
+  pilot_overlay:
+    driver: bridge

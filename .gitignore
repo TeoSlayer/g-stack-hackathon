@@ -11,3 +11,29 @@ xcuserdata/
 
 # gstack-ios skill report cache
 gstack-ios/.cache/
+
+# Python (agent-a, agent-b)
+__pycache__/
+*.pyc
+.venv/
+.uv-cache/
+.pytest_cache/
+*.duckdb
+*.duckdb.wal
+infra/data/*.duckdb
+infra/data/*.duckdb.wal
+infra/data/acks_out/
+infra/data/events_log/
+infra/data/test_*/
+infra/pilot/identity.json
+.env
+
+# Secrets — never commit
+infra/secrets/
+infra/docker/pilot-bin/
+
+# OpenClaw per-agent workspace state
+.openclaw/
+
+# Pilot per-container state
+infra/pilot-data-*/

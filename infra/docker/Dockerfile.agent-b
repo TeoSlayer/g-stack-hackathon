@@ -1,0 +1,39 @@
+# agent-b (Coach) — Pilot daemon + Python coach + Google Calendar sync.
+# Has its own Pilot identity inside the container.
+
+FROM python:3.13-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    COACH_INBOX=/var/coach_inbox \
+    COLLECTOR_INBOX=/var/collector_inbox \
+    COACH_IDENTITY=coach.readiness \
+    COACH_PILOT_MODE=pilotctl \
+    PILOT_HOME=/root/.pilot \
+    PILOT_REGISTRY=34.71.57.205:9000 \
+    PILOT_BEACON=34.71.57.205:9001 \
+    PILOT_LISTEN=:4002 \
+    PILOT_EMAIL=agent-b@g-stack.local \
+    PILOT_HOSTNAME=g-stack-agent-b
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl tini \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY infra/docker/pilot-bin/daemon  /opt/pilot/bin/pilot-daemon
+COPY infra/docker/pilot-bin/pilotctl /opt/pilot/bin/pilotctl
+RUN chmod +x /opt/pilot/bin/pilot-daemon /opt/pilot/bin/pilotctl
+ENV PATH=/opt/pilot/bin:$PATH
+
+WORKDIR /app
+COPY pyproject.toml ./
+COPY agent-a ./agent-a
+COPY agent-b ./agent-b
+RUN pip install --no-cache-dir -e .
+
+COPY infra/docker/entrypoint-agent-b.sh /usr/local/bin/entrypoint-agent-b.sh
+RUN chmod +x /usr/local/bin/entrypoint-agent-b.sh
+
+RUN mkdir -p /var/coach_inbox /root/.pilot
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint-agent-b.sh"]
