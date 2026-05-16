@@ -112,3 +112,40 @@ Report (`gstack-ios/.cache/ios-xcodegen-<project>.json`):
 - **Pairs with:** `/ios-wiring-check` — both surface "something defined
   that isn't being used"; this at the project level, that at the source
   level.
+
+## On failure → next step
+
+- If `xcodegen generate` itself fails → fix `project.yml` per the
+  generator stderr, then re-run.
+- If `drift == "real"` and the diff looks like the generator's choice
+  → re-run with `mode: apply`, review the diff manually, commit if
+  intentional.
+- If `drift == "real"` and the diff looks like manual edits to pbxproj
+  → either fold those edits into `project.yml` (the source of truth),
+  or accept the drift category in `acceptable_drift_categories`.
+
+## Example
+
+```
+$ /ios-xcodegen
+discovered: project_root=.
+xcodegen generate --spec project.yml
+diff: 14 hunks, classified as ordering (12), file_uuid_churn (2)
+drift: harmless
+✓ project in sync with project.yml
+report: gstack-ios/.cache/ios-xcodegen-App.json
+```
+
+Real drift detected:
+
+```
+$ /ios-xcodegen
+xcodegen generate --spec project.yml
+diff: 3 hunks, classified as build_setting_change (1), source_change (2)
+drift: real
+- SWIFT_VERSION changed from 5.9 → 5.10 in HealthSync target
+- Added: HealthSync/NewModelsView.swift
+- Removed: HealthSync/CalendarView.swift
+working tree reset; re-run with mode=apply to keep these changes.
+```
+

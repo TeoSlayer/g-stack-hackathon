@@ -101,3 +101,50 @@ files under `gstack-ios/.cache/screenshots/`.
   (boot/install/launch).
 - **Downstream:** `/ios-visual-critique` (reasons over both screenshots);
   `/ios-simctl log` (captures WCSession traffic).
+
+## On failure → next step
+
+- `pair` fails with "version mismatch" → the watch runtime can't pair
+  with that iPhone runtime. Boot a different combination
+  (`xcrun simctl list runtimes` shows what's installed).
+- `pair_activate` fails with "device not booted" → step 3 didn't fully
+  succeed; re-check `xcrun simctl list devices` for `Booted` state.
+- WCSession traffic absent in logs → the phone-side `WCSession.default
+  .activate()` might not be wired. `/ios-wiring-check` against the
+  source roots to catch dead activation calls.
+
+## Example
+
+```
+$ /ios-watch-pair \
+    phone_app_path=build/.../App.app \
+    watch_app_path=build/.../AppWatch.app \
+    actions=["wait 5", "nudge-sync", "wait 3"]
+
+discovered: phone=iPhone 15 (boot needed), watch=Apple Watch Series 10 46mm
+no existing pair → xcrun simctl pair Apple-Watch... iPhone-15
+booting phone... booted (8.4s)
+booting watch... booted (6.1s)
+installing both apps... ok
+pair_activate <pair-udid>... ok
+launching phone (com.example.app)... ok
+launching watch (com.example.app.watchkitapp)... ok
+initial screenshots captured (phone + watch)
+action: wait 5
+action: nudge-sync — xcrun simctl openurl <watch> app://sync-now
+action: wait 3
+final screenshots captured (phone + watch)
+
+✓ pair_udid=ABC-123, both Booted
+artifacts:
+  gstack-ios/.cache/screenshots/phone-2026-05-16T12-55-00Z.png
+  gstack-ios/.cache/screenshots/watch-2026-05-16T12-55-00Z.png
+  gstack-ios/.cache/screenshots/phone-2026-05-16T12-55-08Z.png
+  gstack-ios/.cache/screenshots/watch-2026-05-16T12-55-08Z.png
+report: gstack-ios/.cache/ios-watch-pair-2026-05-16T12-55-11Z.json
+
+# typical next: critique the watch screen to verify it caught the sync:
+$ /ios-visual-critique screenshots=[<final watch png>] \
+    context="watch home glance, after phone sync nudge, expecting lastSyncAt to update"
+```
+

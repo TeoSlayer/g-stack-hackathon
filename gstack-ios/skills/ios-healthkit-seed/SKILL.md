@@ -99,3 +99,47 @@ across sim reboots; cleared by `xcrun simctl erase <UDID>`.
 - **Downstream:** `/ios-test` (HK-dependent tests rely on this for
   determinism); `/ios-visual-critique` after a sync (so the screenshot
   shows real-looking data, not empty states).
+
+## On failure → next step
+
+- All three paths fail → the app probably hasn't been granted HK
+  read+write auth yet. Launch it, tap through the HK auth dialog with
+  "Turn All Categories On", then re-run.
+- `drift` non-empty on `path_used=app-driven` → the app's debug URL
+  scheme accepted the request but its HK write code path has a bug.
+  Likely worth a `/ios-test` test case once the bug is fixed.
+- Path falls back to `plist-patch` → file a project issue: "add debug
+  URL scheme to seed HK". `app-driven` is the only path that's
+  forward-compatible across iOS versions.
+
+## Example
+
+```
+$ /ios-healthkit-seed preset=baseline-30d bundle_id=com.example.app
+
+discovered: device=iPhone 15 (booted)
+trying path: app-driven
+  → xcrun simctl openurl <UDID> app://debug/seed-hk?preset=baseline-30d
+  → wait 2s for write
+  → verify via app://debug/count-hk?type=hrv
+✓ seeded 30 hrv, 30 rhr, 30 steps, 30 sleep, 4 workout
+✓ verified: all counts match
+path_used: app-driven
+report: gstack-ios/.cache/ios-healthkit-seed-2026-05-16T13-00-00Z.json
+```
+
+When the app doesn't have a debug URL:
+
+```
+$ /ios-healthkit-seed preset=baseline-30d bundle_id=com.example.app
+
+trying path: app-driven... no app-scheme registered for debug URLs
+trying path: helper-app... no HealthKitSeeder target in project
+trying path: plist-patch
+  → locating Container/Shared/.../healthdb.sqlite
+  → inserting 124 rows
+✓ seeded 30 hrv, 30 rhr, 30 steps, 30 sleep, 4 workout
+warning: plist-patch is fragile; consider adding a debug URL scheme to the app
+report: gstack-ios/.cache/ios-healthkit-seed-2026-05-16T13-00-00Z.json
+```
+

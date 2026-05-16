@@ -19,13 +19,11 @@ use Xcode directly.
 
 ## Inputs
 
-Required:
-- `workspace` — `.xcworkspace` path.
-- `scheme` — scheme with a configured Test action.
+All inputs are optional — discovery same as `/ios-build`.
 
-Optional:
-- `destination` — Xcode destination (defaults to scheme's primary
-  simulator).
+- `workspace` — default: first `.xcworkspace` found in cwd.
+- `scheme` — default: first scheme from `xcodebuild -list`.
+- `destination` — default: scheme's primary simulator.
 - `only_testing` — list of `TestTarget/TestClass/testMethod` strings to
   filter.
 - `skip_testing` — inverse of above.
@@ -122,3 +120,49 @@ Report (`gstack-ios/.cache/ios-test-<scheme>.json`):
 - **Downstream:** `/ios-ship-testflight` (refuses to ship with failures).
 - **Pairs with:** `/ios-screenshot-diff` (visual regression is a kind of
   test that doesn't fit XCTest's text-mode failure model).
+
+## On failure → next step
+
+- If `failures[]` contains XCTAssert-shape errors → fix the assertion or
+  the code, re-run.
+- If `failures[]` contains "build failed" / "crashed at launch" → upstream
+  build broke; re-run `/ios-build` first.
+- If `no_tests: true` → add a test target. Even one smoke test against
+  the app's `bootstrap()` or initialiser unlocks every downstream gate
+  (`/ios-ship-testflight` accepts `no_tests: true` as a deliberate
+  signal, but you lose the regression net).
+- If tests pass but you're seeing user-reported regressions → reach for
+  `/ios-screenshot-diff` or `/ios-visual-critique` — XCTest can't see UI.
+
+## Example
+
+```
+$ /ios-test
+discovered: workspace=App.xcworkspace, scheme=App
+build-for-testing... ok
+running 14 tests on iPhone 15...
+✓ 14 passed, 0 failed, 0 skipped, 7.2s
+report: gstack-ios/.cache/ios-test-App.json
+```
+
+No tests configured (meta-finding):
+
+```
+$ /ios-test
+discovered: workspace=App.xcworkspace, scheme=App
+build-for-testing... ok
+no .xctestrun produced — scheme has no test targets configured.
+meta-finding: Add a test target and at least one test before /ios-test
+              can produce a real signal.
+```
+
+One failure:
+
+```
+$ /ios-test
+✗ 13 passed, 1 failed
+  ReadinessTests.testUnknownPath:
+    App/Readiness.swift:24:
+    XCTAssertEqual failed: expected .unknown, got .green
+```
+

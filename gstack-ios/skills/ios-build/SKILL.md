@@ -19,23 +19,26 @@ SPM-only sources), you're chasing a runtime crash (`/ios-perf-trace` or
 
 ## Inputs
 
-Required:
-- `workspace` — path to `.xcworkspace`. If only `.xcodeproj` exists, the
-  skill switches to `-project` mode and notes it in the report.
-- `scheme` — one of the schemes returned by `xcodebuild -list`. Validated
-  before building.
+All inputs are optional — the skill autodiscovers from cwd and falls back
+on sensible defaults. Pass an arg only when discovery would pick the
+wrong thing.
 
-Optional:
-- `destination` — Xcode destination string. Default:
-  `generic/platform=iOS Simulator` for iOS schemes,
-  `generic/platform=watchOS Simulator` for watchOS schemes.
+- `workspace` — path to `.xcworkspace`. Default: first `.xcworkspace`
+  found at `find . -maxdepth 2 -name "*.xcworkspace"`. If none exists,
+  falls back to the first `.xcodeproj` and switches to `-project` mode.
+- `scheme` — Default: first scheme listed by `xcodebuild -list`
+  (excluding Pods/dependency schemes). If only one scheme exists, no
+  arg is needed.
+- `destination` — Default: derived from the scheme's target platform.
+  iOS → `generic/platform=iOS Simulator`; watchOS →
+  `generic/platform=watchOS Simulator`; macOS →
+  `generic/platform=macOS`.
 - `configuration` — `Debug` (default) or `Release`.
-- `derived_data` — explicit path. Default: project-local `build/` (must be
-  gitignored).
+- `derived_data` — Default: project-local `build/` (must be gitignored).
 - `clean` — bool, default `false`. If true, runs `clean` before `build`.
 
 Assumes:
-- cwd is the project root containing the workspace/project.
+- cwd is the project root or a subdirectory of it.
 - `xcodebuild` on PATH.
 - `xcbeautify` optional — used if present, raw output otherwise.
 
@@ -140,3 +143,40 @@ Field order is stable; new fields go at the end with sensible defaults.
   `/ios-ship-testflight` (also requires `configuration == "Release"`),
   `/ios-wiring-check` (reads warnings for `unused` entries).
 - **Peers:** invoke once per scheme.
+
+## On failure → next step
+
+- If `ok: false` and `errors[].category == "code-signing"` or any error
+  mentions provisioning / entitlements → `/ios-signing-doctor`.
+- If `ok: false` and step 2 raised a drift warning → `/ios-xcodegen` to
+  regenerate, then re-run.
+- If `ok: false` and no errors are surfaced in the parser → the parser
+  itself is wrong; read `log_path` directly and file a skill bug.
+- If `ok: true` but `compiled_files == 0` → previous build is already
+  up-to-date for the given config; run with `clean: true` to force.
+
+## Example
+
+Zero-arg invocation against a typical project:
+
+```
+$ /ios-build
+discovered: workspace=App.xcworkspace, scheme=App,
+            destination=generic/platform=iOS Simulator
+building...
+✓ App (Debug, iOS sim): 87 files, 0 errors, 3 warnings, 51.4s
+report: gstack-ios/.cache/ios-build-App-Debug.json
+```
+
+A failing build:
+
+```
+$ /ios-build scheme=AppRelease configuration=Release
+✗ AppRelease (Release, iOS sim): 12 files, 2 errors, 0 warnings, 8.1s
+errors:
+  App/HealthSync.swift:142:9: error: cannot find 'HealthStore' in scope
+  App/SyncEndpoint.swift:24:14: error: extra argument 'metadata' in call
+next: read the report at gstack-ios/.cache/ios-build-AppRelease-Release.json,
+      then fix and re-run.
+```
+

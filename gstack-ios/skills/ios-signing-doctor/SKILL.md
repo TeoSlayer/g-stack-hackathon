@@ -125,3 +125,49 @@ If the procedure runs cleanly with no diagnosis, `diagnosis: []` and
   etc.). After acting, re-run `/ios-build` to confirm.
 - **Pairs with:** `/ios-ship-testflight` (signing failures at upload
   time often surface here too).
+
+## On diagnosis → next step
+
+- `missing_entitlement` for `com.apple.developer.healthkit.background-delivery`
+  → that entitlement is paid-Apple-Developer-only. Either drop it from
+  the `.entitlements` file (foreground observer queries still work) or
+  switch to a paid team.
+- `expired_profile` → in Xcode, sign in to the team in Preferences →
+  Accounts and let it download fresh profiles. Or use
+  Fastlane match / manual download from developer.apple.com.
+- `no_matching_profile` → `PRODUCT_BUNDLE_IDENTIFIER` doesn't match any
+  installed profile's `app_id`. Either install a matching profile or
+  switch to Automatic signing (`CODE_SIGN_STYLE = Automatic`) and let
+  Xcode generate one.
+- `keychain_locked` → `security unlock-keychain` and re-run.
+- `team_mismatch` → set `DEVELOPMENT_TEAM` in `project.yml` to the team
+  ID shown in `identities[].team_id`, regen via `/ios-xcodegen`.
+
+## Example
+
+```
+$ /ios-signing-doctor
+
+discovered: project_root=.
+parsing latest build log... 1 signing pattern matched:
+  "Provisioning profile 'iOS Team Provisioning' doesn't include the
+   com.apple.developer.healthkit.background-delivery entitlement"
+
+identities (1):
+  team_id=ABCD123, type=Apple Development, sha1=<…>
+profiles (3):
+  iOS Team Provisioning  app_id=com.example.* team_id=ABCD123 expires 2026-08
+  Watch Provisioning     app_id=com.example.watchkitapp.* team_id=ABCD123 expires 2026-08
+  Widget Provisioning    app_id=com.example.widget.* team_id=ABCD123 expires 2026-08
+
+diagnosis (1):
+  category: missing_entitlement
+  detail: Project requests com.apple.developer.healthkit.background-delivery
+          but installed profile doesn't include it.
+  suggested_fix: paid-Apple-Developer-only entitlement. Either remove from
+                 App.entitlements (foreground observer queries continue to
+                 work) or upgrade to a paid team.
+
+report: gstack-ios/.cache/ios-signing-doctor-2026-05-16T13-15-00Z.json
+```
+

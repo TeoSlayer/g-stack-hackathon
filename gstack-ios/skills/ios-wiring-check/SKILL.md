@@ -115,3 +115,44 @@ Report (`gstack-ios/.cache/ios-wiring-check-<ts>.json`):
 - **Verifies:** fixes for findings can be confirmed end-to-end by
   `/ios-watch-pair` (for cross-target wiring) or `/ios-test` (for
   in-target wiring).
+
+## On findings → next step
+
+- `severity: contract_broken` → fix immediately. The doc-comment is a
+  promise; an unwired hook means user-visible behaviour silently
+  doesn't happen. After fixing, verify the wiring with
+  `/ios-watch-pair` (cross-target) or `/ios-test` (in-target).
+- `severity: suspected_dead` and the symbol is obviously cleanup-worthy
+  → delete. Use `git blame` to check whether it was added recently as
+  half-done work.
+- `severity: suspected_dead` and the symbol is non-obviously needed
+  (e.g. used by reflection) → add to `whitelist` and re-run; the skill
+  should produce zero findings on a clean repo.
+
+## Example
+
+```
+$ /ios-wiring-check
+
+discovered: roots=[App, Shared]
+scanning 412 symbols across 38 files...
+applying false-positive filters
+  - dropped 47 symbols (@objc, @IBAction, dynamic, override)
+  - dropped 18 symbols (protocol conformance)
+  - dropped 6 symbols (@main, init, deinit, body)
+
+3 findings:
+  Shared/SessionBridge.swift:21
+    publishStatus(lastSyncAt:serverReachable:) [contract_broken]
+    Doc says: "Call this after every sync or reachability change."
+    Refs outside self: 0.
+  App/Models.swift:312
+    deprecatedReadinessV1() [suspected_dead]
+    Refs outside self: 0.
+  App/Diagnostics.swift:88
+    formatTraceForExport() [suspected_dead]
+    Refs outside self: 0.
+
+report: gstack-ios/.cache/ios-wiring-check-2026-05-16T13-10-00Z.json
+```
+

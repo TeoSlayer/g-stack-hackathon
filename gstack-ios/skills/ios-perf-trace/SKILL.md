@@ -133,3 +133,54 @@ Report (`gstack-ios/.cache/ios-perf-trace-<ts>.json`):
   if the perf issue can be regression-pinned.
 - **Pairs with:** `/ios-visual-critique` — low FPS often shows up as
   visual artefacts in screenshots taken at the same moment.
+
+## On alerts → next step
+
+- `Time Profiler` shows main-thread work > 100ms → move it off-main via
+  `Task.detached` or a dedicated queue. Re-trace after the fix.
+- `Allocations` shows persistent allocations at trace end → likely a
+  retain cycle or unbounded cache. Re-trace with `Leaks` template to
+  confirm; fix by breaking the cycle or capping the cache.
+- `Energy Log` shows high wakeups/s during background → an observer or
+  timer is firing too aggressively. Look for throttle gaps in
+  HK observer callbacks, Combine publishers, or `Timer` instances.
+- `Hangs` shows main-thread hangs ≥ 250ms → same root cause as Time
+  Profiler hot spots, but Apple's spotlight metric. Fix takes priority
+  over Time Profiler findings.
+- Alerts is empty on a screen that *feels* slow → the trace template
+  was wrong. Re-trace with a different template (Time Profiler →
+  SwiftUI for view-update slowness; Allocations for memory pressure).
+
+## Example
+
+```
+$ /ios-perf-trace \
+    target="launch com.example.app" \
+    template="Time Profiler" \
+    duration_s=20
+
+discovered: device=iPhone 15 (booted)
+xctrace record --template "Time Profiler" --device <UDID> \
+  --time-limit 20s --output gstack-ios/.cache/traces/com.example.app-...trace \
+  --launch com.example.app
+recording... done (20.4s wall)
+xctrace export --toc → schemas: [time-profile, time-sample, kdebug]
+exporting time-profile, time-sample
+parsed 18432 samples across 4 threads
+
+summary:
+  top symbols (main thread, self_ms):
+    JSONSerialization.data        4200 ms
+    HKAnchoredObjectQuery.execute 4800 ms (inclusive)
+    String.init(repeating:count:)  890 ms
+  main-thread hangs ≥ 250ms: 1
+    12.4s, 380ms, top frame: JSONSerialization.data(withJSONObject:options:)
+
+alerts:
+  [major] Main-thread JSON serialisation of ~60MB payload at 12.4s.
+          Move encoding off the main actor.
+
+report: gstack-ios/.cache/ios-perf-trace-2026-05-16T13-25-00Z.json
+trace:  gstack-ios/.cache/traces/com.example.app-Time-Profiler-...trace
+```
+

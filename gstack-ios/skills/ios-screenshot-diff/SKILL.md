@@ -99,3 +99,48 @@ Report (`gstack-ios/.cache/ios-screenshot-diff-<ts>.json`):
 - **Baseline management:** the skill assumes baselines exist on disk
   (a project-level `__snapshots__/` directory by convention). Promoting
   a current screenshot to baseline is a deliberate human act for now.
+
+## On failure → next step
+
+- `match: false` with regions across the whole screen → likely a sim
+  device-size change (e.g. running on iPhone 16 against an iPhone 15
+  baseline). Confirm `dimensions` match, then either update baseline
+  or rebuild on the right device.
+- `match: false` with one localised region → run `/ios-visual-critique`
+  on the current image with context describing the changed region; the
+  critique will explain *what* changed, not just *that* it changed.
+- `match: true` but `regions` non-empty → tolerance is too loose for
+  this screen. Tighten `tolerance_pct` or `tolerance_channel` and
+  re-run.
+
+## Example
+
+```
+$ /ios-screenshot-diff \
+    current=gstack-ios/.cache/screenshots/iPhone-15-2026-05-16T13-20-00Z.png \
+    baseline=__snapshots__/Status-tab-iPhone-15.png
+
+verify dimensions: 1179x2556 == 1179x2556 ✓
+compare -metric AE -fuzz 8 ... → 412 differing pixels
+pct_changed: 0.014% (under 0.5% tolerance)
+match: true
+regions: 1
+  bbox=[265, 1840, 410, 1900] area=8700px centre=(337, 1870)
+diff_png: gstack-ios/.cache/diffs/Status-tab-iPhone-15-diff.png
+
+warning: match within tolerance but 1 region differs.
+         If this is the timestamp text, add to ignore_regions.
+report: gstack-ios/.cache/ios-screenshot-diff-2026-05-16T13-20-04Z.json
+```
+
+When a real regression happens:
+
+```
+$ /ios-screenshot-diff current=... baseline=...
+pct_changed: 8.7%, match: false
+regions: 3 (centres at 590,420 / 590,1840 / 590,2400)
+
+next: /ios-visual-critique screenshots=[<current>, <diff_png>] \
+        context="Status tab — diff regions in the readiness pill and the activity feed"
+```
+

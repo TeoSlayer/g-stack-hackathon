@@ -133,3 +133,51 @@ readable without `jq`.
   promote a "regression" diff into a "regression with context".
 - **Pairs with:** `/ios-test` — XCTest catches logic; this catches the
   layer XCTest can't see.
+
+## On findings → next step
+
+- `category: missing_assets` with `severity: critical` → wire the asset
+  catalogue, re-screenshot, re-critique.
+- `category: empty_state` and context implies data should be present →
+  caller forgot `/ios-healthkit-seed` (or app-group seeding) before the
+  screenshot. Seed and re-shoot.
+- `category: truncation` → check Dynamic Type / preferred content size;
+  if it only happens at large sizes, that's a real bug worth filing.
+- `findings: []` AND `headline` says "no issues" → trust it; the
+  anti-vibes guard means absence of findings is meaningful.
+
+## Example
+
+```
+$ /ios-simctl action=screenshot
+✓ gstack-ios/.cache/screenshots/iPhone-15-2026-05-16T12-50-00Z.png
+
+$ /ios-visual-critique \
+    screenshots=[gstack-ios/.cache/screenshots/iPhone-15-2026-05-16T12-50-00Z.png] \
+    context="Status tab during sync, expecting progress text + readiness pill"
+
+3 findings: 1 critical, 1 major, 1 minor
+
+F-1 [critical] missing_assets — Status hero, leading icon
+    App icon is the generic SwiftUI placeholder.
+    Evidence: light-grey square with 'system' glyph where the AppIcon
+              asset should render.
+    Fix: wire AppIcon asset catalogue and rebuild.
+
+F-2 [major] empty_state — Readiness pill, right of Status hero
+    Pill renders as blank rounded rect with no label or colour.
+    Evidence: 80×24pt rounded rectangle, default fill, no text inside.
+    Fix: render the .unknown band as "—" with neutral colour, not
+         transparent.
+
+F-3 [minor] typography — Activity feed, first row
+    Title and timestamp use different weights for what reads as
+    parallel info.
+    Evidence: title is .body weight, timestamp is .footnote weight
+              with reduced opacity.
+    Fix: align to .body for both; differentiate by colour only.
+
+report: gstack-ios/.cache/ios-visual-critique-2026-05-16T12-50-04Z.json
+markdown: gstack-ios/.cache/ios-visual-critique-2026-05-16T12-50-04Z.md
+```
+

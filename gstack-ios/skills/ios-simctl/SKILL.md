@@ -125,3 +125,41 @@ Report (`gstack-ios/.cache/ios-simctl-<action>-<timestamp>.json`):
   `/ios-screenshot-diff` (consumes screenshots vs baseline).
 - **Used by:** `/ios-watch-pair` invokes this twice (phone + watch);
   `/ios-widget-preview` invokes this with a widget-specific URL scheme.
+
+## On failure → next step
+
+- `Operation timed out` → simulator is wedged. Try `xcrun simctl
+  shutdown all && xcrun simctl erase <UDID>` (ask before erasing —
+  destroys all installed apps and their data).
+- `Unable to find a device matching` → spelled the device wrong;
+  `xcrun simctl list devices available` shows what's actually installed.
+- `Failed to install: invalid bundle` → bundle was built for the wrong
+  architecture/destination; re-run `/ios-build` with the matching
+  destination.
+- Screenshot is all-black → device finished `boot` but the app isn't
+  drawing yet. `wait 2` and re-screenshot.
+
+## Example
+
+```
+$ /ios-simctl action=screenshot bundle_id=com.example.app
+discovered: device=iPhone 15 (booted)
+xcrun simctl io <UDID> screenshot --type=png \
+  gstack-ios/.cache/screenshots/iPhone-15-2026-05-16T12-50-00Z.png
+✓ screenshot captured: 1179x2556, 412 KB
+```
+
+Full boot → install → launch → screenshot sequence:
+
+```
+$ /ios-simctl action=boot device="iPhone 15"
+$ /ios-simctl action=install app_path=build/.../App.app
+$ /ios-simctl action=launch bundle_id=com.example.app
+✓ launched: PID 14872
+$ /ios-simctl action=screenshot
+✓ gstack-ios/.cache/screenshots/iPhone-15-...png
+
+# pipe to visual critique:
+$ /ios-visual-critique screenshots=[<that path>] context="App home tab"
+```
+

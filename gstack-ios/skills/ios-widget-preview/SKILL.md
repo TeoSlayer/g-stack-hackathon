@@ -106,3 +106,40 @@ Report (`gstack-ios/.cache/ios-widget-preview-<scheme>-<ts>.json`):
 - **Upstream:** `/ios-build` (widget scheme), `/ios-simctl
   install/launch`, optionally `/ios-healthkit-seed` for data.
 - **Downstream:** `/ios-visual-critique`, `/ios-screenshot-diff`.
+
+## On failure → next step
+
+- `Provider.placeholder()` crashed → fix the crash. The widget extension
+  *must* be safe in the placeholder path; iOS calls it before any user
+  interaction.
+- Rendered PNG dimensions wrong → the widget container size doesn't
+  match the family; check `supportedFamilies` and any
+  `containerBackground` modifiers.
+- Empty/black PNG → host app didn't register the widget bundle. Make
+  sure step 3 (launch the host app once) actually completed.
+- No widget scheme exists → add one in `project.yml`, regenerate via
+  `/ios-xcodegen`, retry.
+
+## Example
+
+```
+$ /ios-widget-preview widget_scheme=AppWidget
+
+discovered: workspace=App.xcworkspace, families=[systemSmall, systemMedium]
+build via /ios-build AppWidget... ok
+install host app on iPhone 15... ok
+launch host app to register widget bundle... ok
+
+rendering systemSmall via SwiftUI #Preview path...
+  ✓ gstack-ios/.cache/widget-previews/AppWidget-systemSmall-...png 170x170
+rendering systemMedium via SwiftUI #Preview path...
+  ✓ gstack-ios/.cache/widget-previews/AppWidget-systemMedium-...png 364x170
+
+report: gstack-ios/.cache/ios-widget-preview-AppWidget-2026-05-16T13-05-00Z.json
+
+# typical next: critique each rendered family:
+$ /ios-visual-critique \
+    screenshots=[<systemSmall png>, <systemMedium png>] \
+    context="App widget snapshots — small + medium families, recent-sync data"
+```
+

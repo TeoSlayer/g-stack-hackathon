@@ -139,3 +139,47 @@ silent failures here cost a real release window.
   by the project — not enforced by this skill).
 - **Downstream:** none. Terminal skill. TestFlight notifies testers
   asynchronously.
+
+## On failure → next step
+
+- Validation fails with privacy declaration errors → `Info.plist` is
+  missing a `NSXxxUsageDescription` for a framework you link. Add it,
+  re-archive.
+- Upload rejected with `ITMS-90xxx` codes → look up the exact code;
+  most common: ITMS-90683 (missing usage description), ITMS-90809
+  (deprecated UIWebView usage), ITMS-90685 (CFBundleIdentifier
+  collision with an existing build).
+- Build stays in `PROCESSING` past `poll_timeout_s` → not necessarily
+  failed; App Store Connect can take 10+ minutes for some payloads.
+  Check `https://appstoreconnect.apple.com/apps/<id>/testflight` manually.
+- `INVALID` final state → App Store Connect found a hard problem.
+  Surface the message verbatim and stop — fixing requires a new build.
+- `build_number conflict` → bump `CURRENT_PROJECT_VERSION`, regen via
+  `/ios-xcodegen apply`, re-run with `bump_build_number: false` (you
+  just bumped manually).
+
+## Example
+
+```
+$ /ios-ship-testflight \
+    scheme=App \
+    api_key_id=ABC123 \
+    api_issuer_id=01234567-89ab-cdef-0123-456789abcdef \
+    api_key_path=~/Keys/AuthKey_ABC123.p8 \
+    app_id=1234567890
+
+preflight:
+  ios-build (Release): ok=true ✓
+  ios-test:            ok=true, failures=0 ✓
+  ios-signing-doctor:  ok=true ✓
+
+archive: xcodebuild archive ... → gstack-ios/.cache/archives/App-...xcarchive
+export: → gstack-ios/.cache/exports/App.ipa (24.3 MB)
+validate: xcrun altool --validate-app --file ... → ok
+upload:   xcrun altool --upload-app --file ... → ok
+poll: PROCESSING (30s)... PROCESSING (60s)... VALID (287s) ✓
+
+✓ App 0.1.0 (build 42) is TestFlight-distributable.
+report: gstack-ios/.cache/ios-ship-testflight-2026-05-16T13-30-00Z.json
+```
+
