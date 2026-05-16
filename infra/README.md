@@ -210,9 +210,10 @@ Skills come back with their state intact. Pilot identity is persistent on
 disk; trust list is persistent; DuckDB is persistent; gbrain is persistent.
 No data loss across a full restart.
 
-### Rotate the Telegram bot token
+### Rotate Google OAuth credentials
 
-@BotFather → `/revoke` → new token. Update `infra/.env`. Restart OpenClaw.
+Run the consent flow again with `python agent-b/scripts/google_oauth.py`, update
+`GOOGLE_REFRESH_TOKEN` in `.env`, then restart Agent B: `openclaw skill restart agent-b`.
 
 ## Directory layout (when populated)
 

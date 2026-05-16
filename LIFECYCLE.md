@@ -5,16 +5,18 @@ ordered shutdown sequence. Everything that matters is written to disk before
 the next step in the sequence runs, so any component can crash at any point
 and resume from where it stopped.
 
-## Three lifecycles to coordinate
+## Four lifecycles to coordinate
 
 | Lifecycle | Controlled by | Survives across |
 |---|---|---|
 | **iOS app process** | iOS scheduler + user | foreground / background / suspended / terminated |
-| **OpenClaw skills** (Agent A + B) | OpenClaw daemon | reboots, skill upgrades, individual skill crashes |
+| **Agent A** (health ingest, OpenClaw skill) | OpenClaw daemon | reboots, skill upgrades, crashes |
+| **Agent B** (GSuite ingest, OpenClaw skill) | OpenClaw daemon | reboots, skill upgrades, crashes |
 | **Pilot daemons** (iOS embedded + homelab) | App / daemon process | network changes, NAT renegotiation |
 
-These three are independent. Each side's recovery does not depend on the
-other being healthy; the wire protocol (envelopes + acks) bridges them.
+These four are independent. Each side's recovery does not depend on the
+others being healthy; Pilot envelopes + acks bridge the iOS ↔ Agent A link;
+OAuth tokens and Pilot ports bridge Agent A ↔ Agent B.
 
 ## State machine: per-type sync pipeline (iOS)
 
@@ -237,30 +239,38 @@ reminders need Notifications; etc.).
 │ 1. OpenClaw loads ~/.openclaw/openclaw.json                        │
 │ 2. Loads skill manifests from skills.toml                          │
 │                                                                    │
-│ 3. Agent A skill (Collector) initializes:                          │
-│      a. Open DuckDB at infra/data/facts.duckdb                     │
+│ 3. Agent A skill (Health Ingest) initializes:                      │
+│      a. Open DuckDB at infra/data/health.duckdb                    │
 │      b. Apply pending migrations from agent-a/migrations/          │
 │      c. Bind Pilot listener on port 1001 (ingest)                  │
 │      d. Bind Pilot listener on port 1003 (query)                   │
 │      e. Start ChangeEvent publisher (port 1004)                    │
-│      f. Drain any unacked envelopes in inbox (rare; only if        │
-│         daemon crashed mid-batch)                                  │
+│      f. Open MCP connection to shared G-Brain                      │
+│      g. Drain any unacked envelopes in inbox (rare; crash recovery) │
 │                                                                    │
-│ 4. Agent B skill (Coach) initializes:                              │
-│      a. Open MCP connection to gbrain                              │
-│      b. Subscribe to Pilot port 1004                               │
-│      c. Connect Telegram channel via OpenClaw adapter              │
-│      d. Hydrate conversation state from OpenClaw session store     │
-│      e. Start rule-loop scheduler (cron, 15 min default)           │
+│ 4. Agent B skill (GSuite Ingest) initializes:                      │
+│      a. Load OAuth credentials from .env                           │
+│      b. Open DuckDB at infra/data/gsuite.duckdb                    │
+│      c. Apply pending migrations from agent-b/migrations/          │
+│      d. Hydrate GSuite sync tokens from DB                         │
+│         (Calendar nextSyncToken, Drive pageToken, Gmail historyId) │
+│      e. Open MCP connection to shared G-Brain                      │
+│      f. Subscribe to Pilot port 1004 (Agent A ChangeEvents)        │
+│      g. Schedule first GSuite pull cycle                           │
 │                                                                    │
-│ 5. Daemon reports healthy via `openclaw doctor`                    │
+│ 5. health-intelligence server starts (separate process):           │
+│      a. Load MetricIndex + EmbeddingStore from cache               │
+│      b. Warm SentenceTransformer model                             │
+│      c. Listen on http://127.0.0.1:8741                            │
+│                                                                    │
+│ 6. All processes report healthy                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
 Either skill can crash and OpenClaw restarts only that skill — the other is
 unaffected. Both skills are idempotent on restart: A re-binds to the same
-ports and replays from DuckDB; B re-subscribes to ChangeEvent and queries A
-on the next conversational turn.
+Pilot ports and replays DuckDB; B reloads OAuth tokens and GSuite sync tokens
+from its DuckDB, then resumes incremental pull from the last known checkpoint.
 
 ### Agent A states
 
@@ -292,43 +302,42 @@ on the next conversational turn.
 Single-writer model on DuckDB means A serializes ingest internally. Queries
 from B run concurrently — DuckDB supports MVCC reads.
 
-### Agent B states (per turn)
+### Agent B states (GSuite sync cycle)
 
 ```
         ┌──────────┐
-        │   IDLE   │◄────────────────┐
-        └────┬─────┘                 │
-             │ Telegram message      │
-             │   OR ChangeEvent      │
-             │   OR rule-loop tick   │
-             ▼                       │
-        ┌──────────────┐             │
-        │   READING    │             │
-        │ (query A,    │             │
-        │  gbrain.search)│           │
-        └────┬─────────┘             │
-             ▼                       │
-        ┌──────────────┐             │
-        │   REASONING  │             │
-        │   (LLM turn) │             │
-        └────┬─────────┘             │
-             │ tool call needed?     │
-             ├─ yes → call tool      │
-             │   (gstack, pilot      │
-             │   specialist, gbrain  │
-             │   write) → REASONING  │
-             ▼                       │
-        ┌──────────────┐             │
-        │   REPLYING   │             │
-        │ (Telegram +  │             │
-        │  gbrain.write│             │
-        │  summary)    │             │
-        └────┬─────────┘             │
-             └─────────────────────►─┘
+        │   IDLE   │◄──────────────────────────────┐
+        └────┬─────┘                               │
+             │ sync timer fires                    │
+             │   OR Agent A ChangeEvent received   │
+             ▼                                     │
+        ┌──────────────────┐                       │
+        │   PULLING        │                       │
+        │ (OAuth API:      │                       │
+        │  Calendar,       │                       │
+        │  Drive, Gmail)   │                       │
+        └────┬─────────────┘                       │
+             │ items fetched (or 0 → IDLE)          │
+             ▼                                     │
+        ┌──────────────────┐                       │
+        │   WAREHOUSING    │                       │
+        │ (DuckDB inserts, │                       │
+        │  sync token      │                       │
+        │  advance)        │                       │
+        └────┬─────────────┘                       │
+             │ commit ok                           │
+             ▼                                     │
+        ┌──────────────────┐                       │
+        │   ROLLUP         │                       │
+        │ (G-Brain daily   │                       │
+        │  summary write)  │                       │
+        └────┬─────────────┘                       │
+             └────────────────────────────────────►┘
 ```
 
-Each turn is its own transaction. LLM call may take seconds; OpenClaw
-buffers user messages while a turn is in flight.
+Each pull cycle is idempotent: sync tokens are persisted inside DuckDB in the
+same transaction as the data rows. A crash mid-pull resets to the previous
+committed token; the next cycle replays from that checkpoint.
 
 ## Cross-process state contract
 
@@ -338,11 +347,11 @@ buffers user messages while a turn is in flight.
 | Outbox rows | iOS | SQLite table, `state` column | On boot: `UPDATE state='sending' → 'pending'` |
 | Pilot identity | iOS + homelab | Ed25519 keypair on disk | Identity persists across reinstalls if same App Group |
 | Trust list | iOS + homelab | List of trusted node IDs | First handshake on cold-install needs one-time approve |
-| DuckDB facts | Agent A | Single file `infra/data/facts.duckdb` | Transactional; partial commits roll back |
-| gbrain memory | Coach | PGLite DB at `infra/data/gbrain/` | MCP-managed; PGLite is transactional |
-| Telegram thread | OpenClaw daemon | OpenClaw session store | Hydrated on skill boot |
-| Conversation context | Coach skill | OpenClaw session store + gbrain | LLM gets last N turns + relevant gbrain hits |
-| Rule cooldowns | Coach skill | `infra/data/gbrain/cooldowns` | Persisted; survives Coach restart |
+| Health warehouse | Agent A | DuckDB file `infra/data/health.duckdb` | Transactional; partial commits roll back |
+| GSuite sync tokens | Agent B | Rows in `infra/data/gsuite.duckdb` (`sync_tokens` table) | Committed in same txn as data rows; crash resets to prior token |
+| GSuite warehouse | Agent B | DuckDB file `infra/data/gsuite.duckdb` | Transactional; partial inserts roll back |
+| G-Brain memory | Agent A + B shared | PGLite DB at `infra/data/gbrain/` | MCP-managed; PGLite is transactional |
+| Embedding cache | health-intelligence | `health-intelligence/data/embed_cache.npz` | Hash-invalidated; rebuilt automatically if source JSON changes |
 
 The only piece of state that exists in two places: **Pilot trust**. iOS
 stores who it trusts; homelab stores the same independently. Both must
@@ -351,27 +360,28 @@ agree before a connection works. Re-handshake fixes drift.
 ## Boot order (full system, fresh box)
 
 ```
-1. OpenClaw daemon up        ┐
-2. gbrain MCP server up      ├── infra one-time setup
-3. Telegram bot registered   ┘
+1. OpenClaw daemon up              ┐
+2. G-Brain MCP server up           ├── infra one-time setup
+3. Google OAuth credentials in .env┘
 4. Pilot daemon up (homelab) → identity persisted, listener bound
-5. Agent A skill loads → DuckDB open, listeners bound
-6. Agent B skill loads → MCP + Telegram + subscriptions
+5. Agent A skill loads → health.duckdb open, Pilot ports bound, G-Brain connected
+6. Agent B skill loads → gsuite.duckdb open, OAuth loaded, port 1004 subscribed
+7. health-intelligence server starts → embeddings warm (~10 s cold start)
 
-7. iOS app cold-launches
-8. iOS PilotBoot.start → embedded daemon up, identity persisted
-9. iOS trust-handshake → homelab pilotctl approve <id> (one-time)
-10. iOS OutboxWorker starts draining (was empty on first run)
+8. iOS app cold-launches
+9. iOS PilotBoot.start → embedded daemon up, identity persisted
+10. iOS trust-handshake → homelab pilotctl approve <id> (one-time)
+11. iOS OutboxWorker starts draining (empty on first run)
 
-11. First HK observer fires → sync pipeline kicks in
-12. Envelope lands at Agent A → DuckDB INSERT → ChangeEvent fires
-13. Agent B receives ChangeEvent → rule loop evaluates → no nudge yet
-14. User opens Telegram → "/start" → Coach replies "Ready, I have N samples"
+12. First HK observer fires → sync pipeline kicks in
+13. Envelope lands at Agent A → DuckDB INSERT → ChangeEvent fires on port 1004
+14. Agent B receives ChangeEvent → schedules next GSuite pull
+15. Agent B completes first GSuite pull → G-Brain rollup written
 ```
 
-After step 14, the system is in steady state. From here, every step in the
-hot path is observable in disk state — kill any process at any point and
-re-running it picks up from disk.
+After step 15, the system is in steady state. Both agents are writing to
+G-Brain; health-intelligence can query Agent A and rerank via ZeroEntropy.
+Kill any process at any point — each restarts from its last durable checkpoint.
 
 ## Failure modes (and their resolution)
 
@@ -379,14 +389,17 @@ re-running it picks up from disk.
 |---|---|---|
 | iOS process killed mid-send | One envelope row stays in `state='sending'` | Cold launch: `recover()` moves it back to `pending` |
 | Pilot daemon dies inside iOS | OutboxWorker.send fails with `pilot.state ≠ .running` | `PilotBoot.ensureRunning()` on next foreground / BG wake |
-| Network unreachable | sends fail with timeout | `NetworkMonitor` flips to `.offline`, worker stays in `BACKOFF` |
-| Agent A skill crashes | New envelopes pile up at Pilot inbox | OpenClaw restarts skill; A's inbox-drain catches up; iOS sees a queue of delayed acks but no data loss |
-| OpenClaw daemon down | Telegram silent, no acks | launchd/systemd KeepAlive restarts; on resume, the whole stack rehydrates |
-| DuckDB write fails (disk full) | A returns no ack | iOS outbox grows until disk recovers; eventual eviction |
-| Telegram outage | Coach can't deliver pro-active nudges | Nudges still written to gbrain; user sees them on resume |
-| LLM provider down | Coach reasoning fails | OpenClaw model-failover or graceful degradation: "checking back in a few min" |
+| Network unreachable | Sends fail with timeout | `NetworkMonitor` flips to `.offline`, worker stays in `BACKOFF` |
+| Agent A skill crashes | New envelopes pile up at Pilot inbox | OpenClaw restarts skill; A's inbox-drain catches up; iOS sees delayed acks but no data loss |
+| Agent B skill crashes | GSuite pull pauses; sync tokens safe on disk | OpenClaw restarts skill; B resumes from last committed sync token |
+| OpenClaw daemon down | Both ingest workers stop, no acks from A | launchd/systemd KeepAlive restarts; whole stack rehydrates from disk |
+| DuckDB write fails (disk full) | A returns no ack; B pull aborts | iOS outbox grows until disk recovers; B retries from last sync token |
+| Google OAuth token expired | Agent B pull fails with 401 | Operator runs `python agent-b/scripts/google_oauth.py` to refresh token |
+| Google API rate-limited | Agent B pull throttled | Exponential backoff; next cycle resumes from last successful sync token |
+| health-intelligence server down | Retrieval unavailable | Restart with `.venv/bin/python server.py`; embeddings load from cache in ~10 s |
+| ZeroEntropy unreachable | Reranking unavailable | health-intelligence falls back to raw cosine scores; no data loss |
 | User reinstalls iOS app | New identity, fresh trust | Re-handshake; UUIDs prevent re-ingesting same samples |
-| User changes bundle id | New identity, new UserDefaults, fresh anchors | Anchor paging + UUID dedupe handles the re-flood gracefully (already tested in this codebase) |
+| User changes bundle id | New identity, new UserDefaults, fresh anchors | Anchor paging + UUID dedupe handles the re-flood gracefully |
 
 ## Observability checkpoints
 
@@ -397,22 +410,31 @@ operator can check:
 # iOS — surfaced on Status tab + widget
 outbox.pending  outbox.totalBytes  outbox.oldestAge  outbox.lastAck
 
-# homelab
-openclaw doctor                  # daemon + skills
-duckdb infra/data/facts.duckdb 'SELECT count(*), max(ingested_utc) FROM samples'
-pilotctl trust                   # peers
-pilotctl peers                   # connectivity
-infra/scripts/healthcheck.sh     # composite, exit 0 = green
+# homelab — agents
+openclaw doctor                    # OpenClaw daemon + both skills
+duckdb infra/data/health.duckdb \
+  'SELECT count(*), max(ingested_utc) FROM samples'   # Agent A row count + recency
+duckdb infra/data/gsuite.duckdb \
+  'SELECT count(*), max(synced_utc) FROM calendar_events' # Agent B sync recency
+pilotctl trust                     # peers (expect: iOS + homelab)
+pilotctl peers                     # connectivity table
+
+# homelab — health-intelligence
+curl http://127.0.0.1:8741/health  # {"status":"ok","papers":17,"interventions":89}
+
+# composite
+infra/scripts/healthcheck.sh       # exit 0 = all green
 ```
 
 Any single check that fails names which component is unwell. Recovery for
-each is documented above.
+each is documented in the failure modes table above.
 
 ## See also
 
-- [README.md](README.md) — overall architecture
-- [agent-a/SCHEMA.md](agent-a/SCHEMA.md) — wire format
+- [README.md](README.md) — overall architecture and data flow
+- [agent-a/SCHEMA.md](agent-a/SCHEMA.md) — wire format: envelope, ack, query, change-event
 - [agent-a/CHUNKING.md](agent-a/CHUNKING.md) — outbox + retry strategy
-- [agent-a/README.md](agent-a/README.md) — Collector spec
-- [agent-b/README.md](agent-b/README.md) — Coach spec
+- [agent-a/README.md](agent-a/README.md) — Health ingest agent
+- [agent-b/README.md](agent-b/README.md) — GSuite ingest agent
+- [health-intelligence/SKILL.md](health-intelligence/SKILL.md) — RAG retrieval tool
 - [infra/README.md](infra/README.md) — operator runbook

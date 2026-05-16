@@ -10,7 +10,7 @@ consumers know new data has landed. No LLM, no reasoning, no conversation.
 |---|---|
 | Inbound envelopes | Pilot listener on port `1001` |
 | Deduplication | Sample UUID is the primary key; `INSERT OR IGNORE` |
-| Durability | DuckDB file on disk (`~/.openclaw/workspace/health/facts.duckdb`) |
+| Durability | DuckDB file on disk (`infra/data/health.duckdb`) |
 | Query API | Pilot port `1003` — SQL-string request → result-set reply |
 | Change notifications | Pilot port `1004` — `{table, new_count, since_ts}` after every batch commit |
 | Acknowledgements | Pilot reply to source's ack-port with accepted/duplicate/rejected UUIDs |
