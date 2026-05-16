@@ -8,3 +8,6 @@ DerivedData/
 xcuserdata/
 *.xcuserdatad/
 *.xcuserstate
+
+# gstack-ios skill report cache
+gstack-ios/.cache/
