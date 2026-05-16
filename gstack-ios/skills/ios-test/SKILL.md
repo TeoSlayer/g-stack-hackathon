@@ -84,9 +84,9 @@ Report (`gstack-ios/.cache/ios-test-<scheme>.json`):
   "totals": {"total": 12, "passed": 11, "failed": 1, "skipped": 0},
   "duration_s": 4.7,
   "failures": [
-    {"test": "AppTests.testReadinessUnknownPath",
+    {"test": "AppTests.testEmptyStatePath",
      "file": "<abs>", "line": 24,
-     "message": "XCTAssertEqual failed: expected .unknown, got .green"}
+     "message": "XCTAssertEqual failed: expected .empty, got .loaded"}
   ],
   "result_bundle": "<path to .xcresult>"
 }
@@ -161,8 +161,8 @@ One failure:
 ```
 $ /ios-test
 ✗ 13 passed, 1 failed
-  ReadinessTests.testUnknownPath:
-    App/Readiness.swift:24:
-    XCTAssertEqual failed: expected .unknown, got .green
+  ProfileTests.testEmptyStatePath:
+    App/Profile.swift:24:
+    XCTAssertEqual failed: expected .empty, got .loaded
 ```
 

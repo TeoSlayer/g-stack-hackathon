@@ -55,9 +55,9 @@ Assumes:
    screenshot`.
 8. **For each action in `actions`:**
    - `wait <secs>` — sleep, then re-screenshot both.
-   - `nudge-sync` — call `xcrun simctl openurl <watch>
-     <app-scheme>://sync-now`. Skipped silently if the app doesn't declare
-     the URL scheme.
+   - `deep-link <url>` — call `xcrun simctl openurl <watch> <url>`.
+     Skipped silently if the app doesn't declare the matching URL
+     scheme.
    - `tap-X` — out of scope for v0.1 (would require Appium / private
      simctl). Document the gap.
 9. **Compose report** referencing all screenshot artifacts.
@@ -119,7 +119,7 @@ files under `gstack-ios/.cache/screenshots/`.
 $ /ios-watch-pair \
     phone_app_path=build/.../App.app \
     watch_app_path=build/.../AppWatch.app \
-    actions=["wait 5", "nudge-sync", "wait 3"]
+    actions=["wait 5", "deep-link app://refresh", "wait 3"]
 
 discovered: phone=iPhone 15 (boot needed), watch=Apple Watch Series 10 46mm
 no existing pair → xcrun simctl pair Apple-Watch... iPhone-15
@@ -131,7 +131,7 @@ launching phone (com.example.app)... ok
 launching watch (com.example.app.watchkitapp)... ok
 initial screenshots captured (phone + watch)
 action: wait 5
-action: nudge-sync — xcrun simctl openurl <watch> app://sync-now
+action: deep-link — xcrun simctl openurl <watch> app://refresh
 action: wait 3
 final screenshots captured (phone + watch)
 
@@ -143,8 +143,9 @@ artifacts:
   gstack-ios/.cache/screenshots/watch-2026-05-16T12-55-08Z.png
 report: gstack-ios/.cache/ios-watch-pair-2026-05-16T12-55-11Z.json
 
-# typical next: critique the watch screen to verify it caught the sync:
+# typical next: critique the watch screen to verify it picked up the
+# state change pushed from the phone:
 $ /ios-visual-critique screenshots=[<final watch png>] \
-    context="watch home glance, after phone sync nudge, expecting lastSyncAt to update"
+    context="watch home glance after a phone-side state change, expecting the timestamp to update"
 ```
 

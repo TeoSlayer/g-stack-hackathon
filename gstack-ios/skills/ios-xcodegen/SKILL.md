@@ -143,9 +143,9 @@ $ /ios-xcodegen
 xcodegen generate --spec project.yml
 diff: 3 hunks, classified as build_setting_change (1), source_change (2)
 drift: real
-- SWIFT_VERSION changed from 5.9 → 5.10 in HealthSync target
-- Added: HealthSync/NewModelsView.swift
-- Removed: HealthSync/CalendarView.swift
+- SWIFT_VERSION changed from 5.9 → 5.10 in App target
+- Added: App/NewSettingsView.swift
+- Removed: App/LegacyView.swift
 working tree reset; re-run with mode=apply to keep these changes.
 ```
 

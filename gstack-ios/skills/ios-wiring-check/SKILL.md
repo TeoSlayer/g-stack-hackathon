@@ -143,11 +143,11 @@ applying false-positive filters
 
 3 findings:
   Shared/SessionBridge.swift:21
-    publishStatus(lastSyncAt:serverReachable:) [contract_broken]
-    Doc says: "Call this after every sync or reachability change."
+    publishStatus(lastUpdate:reachable:) [contract_broken]
+    Doc says: "Call this after every state change or reachability flip."
     Refs outside self: 0.
   App/Models.swift:312
-    deprecatedReadinessV1() [suspected_dead]
+    deprecatedFormatV1() [suspected_dead]
     Refs outside self: 0.
   App/Diagnostics.swift:88
     formatTraceForExport() [suspected_dead]

@@ -148,7 +148,7 @@ step 1: ios-xcodegen        ✓
 step 2: ios-build (Release) ✗ code-signing error
   → pivoting to ios-signing-doctor per failure map
 step 3: ios-signing-doctor  finding: missing_entitlement
-                            (HK background-delivery, paid-team-only)
+                            (aps-environment — push not enabled for this App ID)
 
 ⏸ stopped: human_action_required
 read: gstack-ios/.cache/ios-signing-doctor-...json

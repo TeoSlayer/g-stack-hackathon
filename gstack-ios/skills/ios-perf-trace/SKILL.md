@@ -92,7 +92,7 @@ Report (`gstack-ios/.cache/ios-perf-trace-<ts>.json`):
   "summary": {
     "template_specific": {
       "top_symbols": [
-        {"name": "HKAnchoredObjectQuery.execute", "self_ms": 4200,
+        {"name": "URLSession.dataTask.resume", "self_ms": 4200,
          "inclusive_ms": 4800, "thread": "main"}
       ],
       "main_thread_hangs": [
@@ -141,9 +141,10 @@ Report (`gstack-ios/.cache/ios-perf-trace-<ts>.json`):
 - `Allocations` shows persistent allocations at trace end → likely a
   retain cycle or unbounded cache. Re-trace with `Leaks` template to
   confirm; fix by breaking the cycle or capping the cache.
-- `Energy Log` shows high wakeups/s during background → an observer or
-  timer is firing too aggressively. Look for throttle gaps in
-  HK observer callbacks, Combine publishers, or `Timer` instances.
+- `Energy Log` shows high wakeups/s during background → an observer
+  or timer is firing too aggressively. Look for throttle gaps in
+  Combine publishers, `NotificationCenter` observers, or `Timer`
+  instances.
 - `Hangs` shows main-thread hangs ≥ 250ms → same root cause as Time
   Profiler hot spots, but Apple's spotlight metric. Fix takes priority
   over Time Profiler findings.
@@ -171,7 +172,7 @@ parsed 18432 samples across 4 threads
 summary:
   top symbols (main thread, self_ms):
     JSONSerialization.data        4200 ms
-    HKAnchoredObjectQuery.execute 4800 ms (inclusive)
+    URLSession.dataTask           4800 ms (inclusive)
     String.init(repeating:count:)  890 ms
   main-thread hangs ≥ 250ms: 1
     12.4s, 380ms, top frame: JSONSerialization.data(withJSONObject:options:)

@@ -128,20 +128,22 @@ If the procedure runs cleanly with no diagnosis, `diagnosis: []` and
 
 ## On diagnosis → next step
 
-- `missing_entitlement` for `com.apple.developer.healthkit.background-delivery`
-  → that entitlement is paid-Apple-Developer-only. Either drop it from
-  the `.entitlements` file (foreground observer queries still work) or
-  switch to a paid team.
+- `missing_entitlement` → the project's `.entitlements` file requests
+  a capability the profile doesn't include. Either remove the
+  entitlement, or enable the capability in App Store Connect and
+  regenerate the profile. Paid-team-only entitlements (e.g. HealthKit
+  background delivery, NetworkExtension, CarPlay) require a paid
+  Apple Developer membership.
 - `expired_profile` → in Xcode, sign in to the team in Preferences →
-  Accounts and let it download fresh profiles. Or use
-  Fastlane match / manual download from developer.apple.com.
-- `no_matching_profile` → `PRODUCT_BUNDLE_IDENTIFIER` doesn't match any
-  installed profile's `app_id`. Either install a matching profile or
-  switch to Automatic signing (`CODE_SIGN_STYLE = Automatic`) and let
-  Xcode generate one.
+  Accounts and let it download fresh profiles. Or use Fastlane match
+  / manual download from developer.apple.com.
+- `no_matching_profile` → `PRODUCT_BUNDLE_IDENTIFIER` doesn't match
+  any installed profile's `app_id`. Either install a matching profile
+  or switch to Automatic signing (`CODE_SIGN_STYLE = Automatic`) and
+  let Xcode generate one.
 - `keychain_locked` → `security unlock-keychain` and re-run.
-- `team_mismatch` → set `DEVELOPMENT_TEAM` in `project.yml` to the team
-  ID shown in `identities[].team_id`, regen via `/ios-xcodegen`.
+- `team_mismatch` → set `DEVELOPMENT_TEAM` in `project.yml` to the
+  team ID shown in `identities[].team_id`, regen via `/ios-xcodegen`.
 
 ## Example
 
@@ -151,22 +153,21 @@ $ /ios-signing-doctor
 discovered: project_root=.
 parsing latest build log... 1 signing pattern matched:
   "Provisioning profile 'iOS Team Provisioning' doesn't include the
-   com.apple.developer.healthkit.background-delivery entitlement"
+   aps-environment entitlement"
 
 identities (1):
   team_id=ABCD123, type=Apple Development, sha1=<…>
-profiles (3):
+profiles (2):
   iOS Team Provisioning  app_id=com.example.* team_id=ABCD123 expires 2026-08
-  Watch Provisioning     app_id=com.example.watchkitapp.* team_id=ABCD123 expires 2026-08
   Widget Provisioning    app_id=com.example.widget.* team_id=ABCD123 expires 2026-08
 
 diagnosis (1):
   category: missing_entitlement
-  detail: Project requests com.apple.developer.healthkit.background-delivery
-          but installed profile doesn't include it.
-  suggested_fix: paid-Apple-Developer-only entitlement. Either remove from
-                 App.entitlements (foreground observer queries continue to
-                 work) or upgrade to a paid team.
+  detail: Project requests aps-environment (push notifications) but
+          installed profile doesn't include it.
+  suggested_fix: enable Push Notifications capability for this App ID
+                 in App Store Connect, then download the regenerated
+                 profile (or let Xcode Automatic signing handle it).
 
 report: gstack-ios/.cache/ios-signing-doctor-2026-05-16T13-15-00Z.json
 ```

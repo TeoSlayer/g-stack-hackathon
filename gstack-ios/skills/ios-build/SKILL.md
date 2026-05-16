@@ -88,7 +88,7 @@ Assumes:
 6. **Emit report.** Write JSON to
    `gstack-ios/.cache/ios-build-<scheme>-<config>.json`. Echo a one-line
    summary to stdout:
-   `✓ HealthSync (Debug, iOS sim): 51 files, 0 errors, 3 warnings, 42.1s`.
+   `✓ App (Debug, iOS sim): 51 files, 0 errors, 3 warnings, 42.1s`.
 
 ## Outputs
 
@@ -146,12 +146,13 @@ Field order is stable; new fields go at the end with sensible defaults.
 
 ## On failure → next step
 
-- If `ok: false` and `errors[].category == "code-signing"` or any error
-  mentions provisioning / entitlements → `/ios-signing-doctor`.
-- If `ok: false` and step 2 raised a drift warning → `/ios-xcodegen` to
-  regenerate, then re-run.
-- If `ok: false` and no errors are surfaced in the parser → the parser
-  itself is wrong; read `log_path` directly and file a skill bug.
+- If `ok: false` and any error mentions provisioning / entitlements /
+  code-signing → `/ios-signing-doctor`.
+- If `ok: false` and step 2 raised a drift warning → `/ios-xcodegen`
+  to regenerate, then re-run.
+- If `ok: false` and no errors are surfaced in the parser → the
+  parser itself is wrong; read `log_path` directly and file a skill
+  bug.
 - If `ok: true` but `compiled_files == 0` → previous build is already
   up-to-date for the given config; run with `clean: true` to force.
 
@@ -174,8 +175,8 @@ A failing build:
 $ /ios-build scheme=AppRelease configuration=Release
 ✗ AppRelease (Release, iOS sim): 12 files, 2 errors, 0 warnings, 8.1s
 errors:
-  App/HealthSync.swift:142:9: error: cannot find 'HealthStore' in scope
-  App/SyncEndpoint.swift:24:14: error: extra argument 'metadata' in call
+  App/UserService.swift:142:9: error: cannot find 'UserStore' in scope
+  App/APIClient.swift:24:14: error: extra argument 'metadata' in call
 next: read the report at gstack-ios/.cache/ios-build-AppRelease-Release.json,
       then fix and re-run.
 ```

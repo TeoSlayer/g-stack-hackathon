@@ -18,10 +18,11 @@ This is **not** pixel diffing. Use `/ios-screenshot-diff` for regression
 checks against a known-good baseline. This is open-ended critique: given
 this screen, what's wrong?
 
-Wrong call when there's no baseline AND the surface is totally unfamiliar
-(no design intent) — without *any* expectation, the critique becomes
-vibes. Provide at least a one-line context like "Status hero on the
-iOS app's Status tab during a sync".
+Wrong call when there's no baseline AND the surface is totally
+unfamiliar (no design intent) — without *any* expectation, the
+critique becomes vibes. Provide at least a one-line context like
+"Profile screen on first launch, expecting avatar + name + status
+badge".
 
 ## Inputs
 
@@ -92,11 +93,11 @@ Report (`gstack-ios/.cache/ios-visual-critique-<timestamp>.json`):
   "skill": "ios-visual-critique",
   "version": "0.1",
   "screenshots": ["gstack-ios/.cache/screenshots/..."],
-  "context": "Status tab during sync",
+  "context": "Profile screen on first launch",
   "headline": "3 findings: 1 critical, 2 minor",
   "findings": [
     {"id": "F-1", "severity": "critical", "category": "missing_assets",
-     "where": "Status hero, leading icon",
+     "where": "Header, leading icon",
      "problem": "App icon is the generic SwiftUI placeholder.",
      "evidence": "Light-grey square with 'system' glyph in the icon position.",
      "suggested_fix": "Wire AppIcon asset catalogue."}
@@ -136,13 +137,14 @@ readable without `jq`.
 
 ## On findings → next step
 
-- `category: missing_assets` with `severity: critical` → wire the asset
-  catalogue, re-screenshot, re-critique.
+- `category: missing_assets` with `severity: critical` → wire the
+  asset catalogue, re-screenshot, re-critique.
 - `category: empty_state` and context implies data should be present →
-  caller forgot `/ios-healthkit-seed` (or app-group seeding) before the
-  screenshot. Seed and re-shoot.
-- `category: truncation` → check Dynamic Type / preferred content size;
-  if it only happens at large sizes, that's a real bug worth filing.
+  caller forgot a seeding step (sample data, fixtures, login state)
+  before the screenshot. Set the state and re-shoot.
+- `category: truncation` → check Dynamic Type / preferred content
+  size; if it only happens at large sizes, that's a real bug worth
+  filing.
 - `findings: []` AND `headline` says "no issues" → trust it; the
   anti-vibes guard means absence of findings is meaningful.
 
@@ -154,26 +156,26 @@ $ /ios-simctl action=screenshot
 
 $ /ios-visual-critique \
     screenshots=[gstack-ios/.cache/screenshots/iPhone-15-2026-05-16T12-50-00Z.png] \
-    context="Status tab during sync, expecting progress text + readiness pill"
+    context="Profile screen on first launch, expecting avatar + name + status badge"
 
 3 findings: 1 critical, 1 major, 1 minor
 
-F-1 [critical] missing_assets — Status hero, leading icon
+F-1 [critical] missing_assets — Header, leading icon
     App icon is the generic SwiftUI placeholder.
     Evidence: light-grey square with 'system' glyph where the AppIcon
               asset should render.
     Fix: wire AppIcon asset catalogue and rebuild.
 
-F-2 [major] empty_state — Readiness pill, right of Status hero
-    Pill renders as blank rounded rect with no label or colour.
+F-2 [major] empty_state — Status badge, right of profile header
+    Badge renders as blank rounded rect with no label or colour.
     Evidence: 80×24pt rounded rectangle, default fill, no text inside.
-    Fix: render the .unknown band as "—" with neutral colour, not
-         transparent.
+    Fix: render the unset state with placeholder text and neutral
+         colour, not transparent.
 
-F-3 [minor] typography — Activity feed, first row
-    Title and timestamp use different weights for what reads as
+F-3 [minor] typography — List, first row
+    Title and subtitle use different weights for what reads as
     parallel info.
-    Evidence: title is .body weight, timestamp is .footnote weight
+    Evidence: title is .body weight, subtitle is .footnote weight
               with reduced opacity.
     Fix: align to .body for both; differentiate by colour only.
 

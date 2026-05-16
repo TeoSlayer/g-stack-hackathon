@@ -23,7 +23,6 @@ others, and runnable interactively from the prompt or headlessly via
 | [`/ios-simctl`](skills/ios-simctl/SKILL.md) | Simulator lifecycle: boot, install, launch, screenshot, push, deep link, log capture. |
 | [`/ios-visual-critique`](skills/ios-visual-critique/SKILL.md) | Structured critique of a captured screenshot — layout, contrast, truncation, empty states. |
 | [`/ios-watch-pair`](skills/ios-watch-pair/SKILL.md) | Paired iPhone + Apple Watch simulators, both apps installed, both screens captured. |
-| [`/ios-healthkit-seed`](skills/ios-healthkit-seed/SKILL.md) | Inject deterministic HealthKit samples for repeatable tests. |
 | [`/ios-widget-preview`](skills/ios-widget-preview/SKILL.md) | Headless widget rendering across families. |
 | [`/ios-wiring-check`](skills/ios-wiring-check/SKILL.md) | Find defined-but-uncalled symbols — cross-target hooks, delegate methods, doc-promised entry points. |
 | [`/ios-signing-doctor`](skills/ios-signing-doctor/SKILL.md) | Decode code-signing / provisioning failures into a single actionable diagnosis. |
@@ -83,7 +82,6 @@ A typical sprint flow:
                                          →  /ios-watch-pair
                                          →  /ios-widget-preview
                                          →  /ios-perf-trace
-                                         →  /ios-healthkit-seed
 
    /ios-wiring-check (independent — runs against the source tree directly)
 ```

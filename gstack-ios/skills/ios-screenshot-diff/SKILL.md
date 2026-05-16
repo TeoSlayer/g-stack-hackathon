@@ -93,9 +93,10 @@ Report (`gstack-ios/.cache/ios-screenshot-diff-<ts>.json`):
 
 - **Upstream:** `/ios-simctl screenshot` (current image),
   `/ios-widget-preview` (widget images).
-- **Downstream:** `/ios-visual-critique` (when `match: false`, critique
-  the differing regions to explain *what* changed in human terms — not
-  just "these pixels differ" but "the badge turned from grey to green").
+- **Downstream:** `/ios-visual-critique` (when `match: false`,
+  critique the differing regions to explain *what* changed in human
+  terms — not just "these pixels differ" but "the badge turned from
+  grey to green, and the row count went from 3 to 4").
 - **Baseline management:** the skill assumes baselines exist on disk
   (a project-level `__snapshots__/` directory by convention). Promoting
   a current screenshot to baseline is a deliberate human act for now.
@@ -118,7 +119,7 @@ Report (`gstack-ios/.cache/ios-screenshot-diff-<ts>.json`):
 ```
 $ /ios-screenshot-diff \
     current=gstack-ios/.cache/screenshots/iPhone-15-2026-05-16T13-20-00Z.png \
-    baseline=__snapshots__/Status-tab-iPhone-15.png
+    baseline=__snapshots__/Home-iPhone-15.png
 
 verify dimensions: 1179x2556 == 1179x2556 ✓
 compare -metric AE -fuzz 8 ... → 412 differing pixels
@@ -126,7 +127,7 @@ pct_changed: 0.014% (under 0.5% tolerance)
 match: true
 regions: 1
   bbox=[265, 1840, 410, 1900] area=8700px centre=(337, 1870)
-diff_png: gstack-ios/.cache/diffs/Status-tab-iPhone-15-diff.png
+diff_png: gstack-ios/.cache/diffs/Home-iPhone-15-diff.png
 
 warning: match within tolerance but 1 region differs.
          If this is the timestamp text, add to ignore_regions.
@@ -141,6 +142,6 @@ pct_changed: 8.7%, match: false
 regions: 3 (centres at 590,420 / 590,1840 / 590,2400)
 
 next: /ios-visual-critique screenshots=[<current>, <diff_png>] \
-        context="Status tab — diff regions in the readiness pill and the activity feed"
+        context="Home screen — diff regions in the badge and the list rows"
 ```
 

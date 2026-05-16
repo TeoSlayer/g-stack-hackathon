@@ -62,7 +62,6 @@ the CI log says exactly what to do.
 | `/ios-simctl` | boot / install / launch / screenshot / push / url / log |
 | `/ios-visual-critique` | structured critique over a screenshot — layout, contrast, truncation, empty states |
 | `/ios-watch-pair` | paired iPhone + Watch sims, both apps, both screens |
-| `/ios-healthkit-seed` | deterministic HK sample injection |
 | `/ios-widget-preview` | headless widget rendering across families |
 | `/ios-wiring-check` | dead / contract-broken declarations |
 | `/ios-signing-doctor` | identity × profile × entitlement diagnosis |
@@ -97,7 +96,6 @@ gstack-ios/.cache/
 ├── ios-simctl-<action>-<ts>.json
 ├── ios-visual-critique-<ts>.json + .md
 ├── ios-watch-pair-<ts>.json
-├── ios-healthkit-seed-<ts>.json
 ├── ios-widget-preview-<scheme>-<ts>.json
 ├── ios-wiring-check-<ts>.json
 ├── ios-signing-doctor-<ts>.json
@@ -119,7 +117,7 @@ filename); timestamped artifacts accumulate until cleaned manually.
 ```sh
 rm ~/.claude/skills/gstack-ios
 for s in build xcodegen test simctl visual-critique watch-pair \
-         healthkit-seed widget-preview wiring-check signing-doctor \
+         widget-preview wiring-check signing-doctor \
          screenshot-diff perf-trace ship-testflight loop; do
   rm -f "$HOME/.claude/skills/ios-$s"
 done

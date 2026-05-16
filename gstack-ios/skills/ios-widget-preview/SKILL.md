@@ -14,9 +14,9 @@ Pairs with `/ios-visual-critique` to reason about the rendered output, and
 with `/ios-screenshot-diff` to regression-test families.
 
 Wrong call when the widget reads live data from an app group and the
-group hasn't been seeded — the preview will show empty states regardless
-of the widget's correctness. Run `/ios-healthkit-seed` (or app-group
-seeding) first.
+group hasn't been seeded — the preview will show empty states
+regardless of the widget's correctness. Seed the app group with
+project-specific fixtures first.
 
 ## Inputs
 
@@ -104,7 +104,8 @@ Report (`gstack-ios/.cache/ios-widget-preview-<scheme>-<ts>.json`):
 ## Composition
 
 - **Upstream:** `/ios-build` (widget scheme), `/ios-simctl
-  install/launch`, optionally `/ios-healthkit-seed` for data.
+  install/launch`, plus any project-specific data seeding step if the
+  widget reads from an app group.
 - **Downstream:** `/ios-visual-critique`, `/ios-screenshot-diff`.
 
 ## On failure → next step
@@ -140,6 +141,6 @@ report: gstack-ios/.cache/ios-widget-preview-AppWidget-2026-05-16T13-05-00Z.json
 # typical next: critique each rendered family:
 $ /ios-visual-critique \
     screenshots=[<systemSmall png>, <systemMedium png>] \
-    context="App widget snapshots — small + medium families, recent-sync data"
+    context="App widget snapshots — small + medium families, populated state"
 ```
 
