@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F43F5E"/>
+      <stop offset="100%" stop-color="#7E22CE"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded-square background — Xcode masks it but the gradient still
+       carries through. -->
+  <rect x="0" y="0" width="1024" height="1024" rx="180" ry="180" fill="url(#bg)"/>
+
+  <!-- Subtle inner highlight -->
+  <rect x="0" y="0" width="1024" height="1024" rx="180" ry="180"
+        fill="white" fill-opacity="0.05"/>
+
+  <!-- Heart in the centre — slightly inset and offset so the sync arc reads -->
+  <g transform="translate(512 540)" fill="white">
+    <path d="M 0,160
+             C -160,40 -260,-40 -260,-150
+             A 130,130 0 0 1 0,-220
+             A 130,130 0 0 1 260,-150
+             C 260,-40 160,40 0,160 Z"/>
+  </g>
+
+  <!-- Sync arc around the heart, ~270° of an annulus with an arrowhead -->
+  <g transform="translate(512 512)" fill="none" stroke="white" stroke-width="40"
+     stroke-linecap="round" opacity="0.85">
+    <path d="M -300,0
+             A 300,300 0 1 1 0,300"/>
+  </g>
+  <!-- Arrowhead at the tip of the arc (3 o'clock then pointing down) -->
+  <g transform="translate(512 812)" fill="white" opacity="0.85">
+    <polygon points="0,0  -55,-30  -25,0  -55,30"/>
+  </g>
+
+  <!-- Pulse dot above the heart, hint of telemetry -->
+  <circle cx="512" cy="232" r="22" fill="white" opacity="0.9"/>
+</svg>
