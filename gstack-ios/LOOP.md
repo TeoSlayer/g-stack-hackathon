@@ -2,9 +2,24 @@
 
 This file is the loop's only state. Each iteration reads it, acts, rewrites it.
 
+## ⏸ PAUSED — 2026-05-16
+
+The user halted the loop after iteration 2. A wakeup is still scheduled to
+fire (set before the pause directive). When it fires, the agent should:
+
+1. Read this notice.
+2. Confirm "Pause the loop" or similar appears in the recent user messages.
+3. **Do not** execute iteration 3.
+4. **Do not** call `ScheduleWakeup` to chain another iteration.
+5. Simply acknowledge the pause and exit.
+
+To resume: user gives an explicit "resume the loop" instruction. The
+resuming turn should remove this notice, then either run iteration 3
+inline or call `ScheduleWakeup` to schedule it.
+
 ## Current iteration
 
-**N:** 3 (next to run)
+**N:** 3 (next to run when resumed)
 **Mode:** dogfooding (all 13 skill specs drafted; next phase is exercising them)
 
 ## Iteration 2 outcome (2026-05-16, burst-draft turn)
