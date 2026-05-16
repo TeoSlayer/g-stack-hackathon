@@ -42,8 +42,7 @@ data. Keeping the warehouse isolated means either side restarts independently.
 | `change_event.py` | ✓ Done | Broadcasts ChangeEvent after each batch commit. |
 | `trust.py` | ✓ Done | Source/consumer allowlists + version gating. |
 | `server.py` | ✓ Done | Entry point. Wires all modules; CLI args for inbox, warehouse path, trust config. |
-| `transport.py` | ⚠ Partial | `FileTransport` (test mode) done; `PilotctlTransport` (production) stubbed. |
-| `gbrain_rollup.py` | ⚠ Partial | Framework present; summaries not yet connected. |
+| `transport.py` | ✓ Done | `FileTransport` (test/file-inbox mode), `PilotctlTransport` (shells out to `pilotctl send-message`), `TeeTransport` (fan-out to both). |
 
 **84 unit tests passing.** 8 E2E scenarios verified: clean ingest, bad
 samples, batch replay, route assembly, SQL query, change events.
@@ -151,10 +150,8 @@ patterns can be recalled semantically without re-querying raw DuckDB.
 
 ## What's next
 
-- `PilotctlTransport`: replace file-based test stub with real `pilotctl`
-  subprocess calls for production overlay use.
-- Source identity allowlist enforcement from config file.
-- G-Brain rollup outputs wired to actual daily summaries.
+- Source identity allowlist enforcement from config file (currently hardcoded in `trust.py`).
+- G-Brain rollup: `agent-b/coach/gbrain_rollup.py` handles health data summaries; an equivalent needs to run on Agent A's side after each batch commit.
 
 ## Where it fits
 

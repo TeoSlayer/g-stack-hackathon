@@ -9,8 +9,8 @@ infrastructure.
 
 ```
                                  ┌─────────────────────────────────────────────────────┐
-                                 │                  Pilot overlay network               │
-                                 │                                                      │
+                                 │                  Pilot overlay network              │
+                                 │                                                     │
   iPhone (HealthKit + Watch)     │  ┌────────────────────┐    ┌────────────────────┐   │
     PilotSyncTransport  ─────────┼─►│  agent-a           │    │  agent-b           │   │
     (embedded pilot-swift)       │  │  Health Ingest     │◄──►│  GSuite Ingest     │   │
@@ -46,7 +46,8 @@ Five principles:
 3. **Health intelligence is a retrieval layer, not a chatbot.** A FastAPI
    server backed by 17 systematic reviews and meta-analyses returns ranked,
    citable intervention recommendations given alert values or a free-text
-   query. ZeroEntropy reranks results before they surface to any LLM.
+   query. ZeroEntropy reranking is the planned second stage; results are
+   currently ranked by cosine similarity.
 
 4. **gstack-ios is how the iOS app gets built.** Claude Code with the
    `gstack-ios` skill pack drives `xcodebuild`, simulators, signing, perf
@@ -63,7 +64,7 @@ Five principles:
 | Path | What it is | Status |
 |---|---|---|
 | [`pilot-swift/`](pilot-swift/) | Swift package embedding the Pilot daemon inside iOS/macOS apps. Static `Pilot.xcframework` + idiomatic Swift wrapper. alice/bob encrypted handshake smoke test passes on iOS sim. | **Working** |
-| [`health-sync/`](health-sync/) | iOS + watchOS + widget app. Reads HealthKit, runs 27 on-device models, charts trends and forecasts, hex-binned location heatmap. Pushes envelopes to Agent A via `PilotSyncTransport`. | **iOS app working standalone. Pilot transport wired, pending activation.** |
+| [`health-sync/`](health-sync/) | iOS + watchOS + widget app. Reads HealthKit, runs 27 on-device models, charts trends and forecasts, hex-binned location heatmap. Pushes envelopes to Agent A via `PilotSyncTransport`. | **Working standalone. `PilotSyncTransport` implemented and active; requires homelab Agent A reachable via Pilot.** |
 | [`agent-a/`](agent-a/) | Health ingest. Pilot listener (port 1001), DuckDB warehouse, SQL query gate (port 1003), change-event broadcaster (port 1004). G-Brain rollup. 84 tests passing. | **Core built, PilotctlTransport stub → real pending.** |
 | [`agent-b/`](agent-b/) | GSuite ingest. Pulls calendar, Drive, Gmail via OAuth. Warehouses to DuckDB. G-Brain rollup. Speaks to Agent A via Pilot for cross-source reasoning. | **Spec + framework. OAuth pull and warehouse not yet built.** |
 | [`health-intelligence/`](health-intelligence/) | FastAPI RAG server. 17 peer-reviewed papers, 89 interventions. Alert-match + semantic retrieval + ZeroEntropy reranking. LLM-ready prompt output. | **Server running. ZeroEntropy reranking integration pending.** |

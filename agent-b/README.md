@@ -41,10 +41,11 @@ the other noticing beyond a brief reconnect.
 |---|---|
 | `client.py` — query Agent A via Pilot | ✓ Done |
 | `__main__.py` — CLI: `coach query`, `coach watch`, `coach readiness` | ✓ Done |
-| `gbrain_rollup.py` — daily summary framework | ⚠ Partial (framework, not yet wired) |
-| GSuite OAuth pull | ✗ Not yet built |
-| Calendar / Drive / Gmail warehouse tables | ✗ Not yet built |
-| G-Brain write from rollup | ✗ Not yet built |
+| `gbrain_rollup.py` — health data → daily markdown summaries | ✓ Done (health path; GSuite path not yet wired) |
+| `calendar_sync.py` — Google Calendar OAuth + event pull → markdown | ✓ Standalone (not yet integrated into coach package) |
+| `tools/gbrain.py` — gbrain MCP tool wrappers | ⚠ Skeleton only |
+| Calendar / Drive / Gmail → DuckDB warehouse tables | ✗ Not yet built |
+| G-Brain write wired into package flow | ✗ Not yet built |
 
 ## Running (what works today)
 
@@ -59,7 +60,17 @@ python -m coach watch
 python -m coach readiness
 ```
 
-These work because `client.py` is complete. GSuite pull is the next phase.
+`client.py` and the CLI are complete. The Google Calendar OAuth + sync loop also exists as a **standalone script** (`agent-b/coach/calendar_sync.py`) which is functional but not yet integrated into the main coach package flow:
+
+```sh
+# One-time OAuth consent (opens browser, persists refresh token)
+python agent-b/coach/calendar_sync.py --auth-only
+
+# Pull calendar events → daily markdown files under ~/brain/daily/calendar/
+python agent-b/coach/calendar_sync.py --days 30
+```
+
+Full integration into the coach package (DuckDB warehouse, G-Brain rollup trigger) is the next phase.
 
 ## Planned data tables
 

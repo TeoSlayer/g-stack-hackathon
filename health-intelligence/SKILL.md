@@ -5,8 +5,9 @@ description: |
   Evidence-based intervention retrieval for health metric alerts.
   Given triggered alerts (metric_id + value + band from the iOS app) or a
   free-text query, returns ranked intervention recommendations sourced from
-  17 peer-reviewed systematic reviews and meta-analyses. Results are reranked
-  by ZeroEntropy before surfacing to any LLM or downstream consumer.
+  17 peer-reviewed systematic reviews and meta-analyses.
+  ZeroEntropy reranking is planned but not yet integrated; results are
+  currently ranked by cosine similarity (semantic path) or score=1.0 (alert match).
   Use when the user asks about health interventions, when a metric alert fires,
   or when a reasoning agent needs evidence-backed recommendations.
 tags:
@@ -23,24 +24,14 @@ allowed-tools:
 
 ## What it does
 
-Three-stage pipeline:
+Two retrieval paths, results formatted for LLM consumption:
 
-1. **Retrieval** — 17 peer-reviewed papers (systematic reviews + meta-analyses),
-   89 interventions indexed as `all-MiniLM-L6-v2` embeddings cached locally.
-2. **Reranking** — ZeroEntropy reranks the candidate set before returning results,
-   improving precision without changing the retrieval index.
-3. **Formatting** — returns ranked `RetrievedIntervention` objects with full
-   citation metadata plus a ready-to-send LLM coaching prompt.
+| Path | Trigger | Speed | Notes |
+|---|---|---|---|
+| `alert_match` | `alerts` list with `metric_id` | <5 ms | Exact lookup, score=1.0 — no embeddings needed |
+| `semantic` | `query` string | ~10 ms warm | Cosine similarity over 384-dim `all-MiniLM-L6-v2` embeddings |
 
-Two retrieval paths feed the reranker:
-
-| Path | Trigger | Notes |
-|---|---|---|
-| `alert_match` | `alerts` list with `metric_id` | Exact lookup, score=1.0 — no embeddings needed |
-| `semantic` | `query` string | Cosine similarity over 384-dim embeddings |
-
-ZeroEntropy reranking integration is pending; the server currently returns
-retrieval scores directly.
+Results are sorted alert-first then by cosine score. **ZeroEntropy reranking is planned** — the architecture reserves a reranking stage between retrieval and formatting, but the integration is not yet implemented. The server currently returns retrieval scores directly.
 
 ## Starting the server
 

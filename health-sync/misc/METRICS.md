@@ -1,6 +1,6 @@
 # On-Device Health Metrics
 
-All 24 models run entirely on the iOS device. No server, no network dependency for analysis.
+All 27 models run entirely on the iOS device. No server, no network dependency for analysis.
 
 ## Original 7 (Models.swift)
 

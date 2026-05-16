@@ -241,8 +241,7 @@ reminders need Notifications; etc.).
 │                                                                    │
 │ 3. Agent A skill (Health Ingest) initializes:                      │
 │      a. Open DuckDB at infra/data/health.duckdb                    │
-│      b. Apply pending migrations from agent-a/migrations/          │
-│      c. Bind Pilot listener on port 1001 (ingest)                  │
+│      b. Bind Pilot listener on port 1001 (ingest)                  │
 │      d. Bind Pilot listener on port 1003 (query)                   │
 │      e. Start ChangeEvent publisher (port 1004)                    │
 │      f. Open MCP connection to shared G-Brain                      │
@@ -251,8 +250,7 @@ reminders need Notifications; etc.).
 │ 4. Agent B skill (GSuite Ingest) initializes:                      │
 │      a. Load OAuth credentials from .env                           │
 │      b. Open DuckDB at infra/data/gsuite.duckdb                    │
-│      c. Apply pending migrations from agent-b/migrations/          │
-│      d. Hydrate GSuite sync tokens from DB                         │
+│      c. Hydrate GSuite sync tokens from DB                         │
 │         (Calendar nextSyncToken, Drive pageToken, Gmail historyId) │
 │      e. Open MCP connection to shared G-Brain                      │
 │      f. Subscribe to Pilot port 1004 (Agent A ChangeEvents)        │
@@ -394,7 +392,7 @@ Kill any process at any point — each restarts from its last durable checkpoint
 | Agent B skill crashes | GSuite pull pauses; sync tokens safe on disk | OpenClaw restarts skill; B resumes from last committed sync token |
 | OpenClaw daemon down | Both ingest workers stop, no acks from A | launchd/systemd KeepAlive restarts; whole stack rehydrates from disk |
 | DuckDB write fails (disk full) | A returns no ack; B pull aborts | iOS outbox grows until disk recovers; B retries from last sync token |
-| Google OAuth token expired | Agent B pull fails with 401 | Operator runs `python agent-b/scripts/google_oauth.py` to refresh token |
+| Google OAuth token expired | Agent B pull fails with 401 | Re-run `python agent-b/coach/calendar_sync.py` OAuth flow to get a new refresh token; update `.env` |
 | Google API rate-limited | Agent B pull throttled | Exponential backoff; next cycle resumes from last successful sync token |
 | health-intelligence server down | Retrieval unavailable | Restart with `.venv/bin/python server.py`; embeddings load from cache in ~10 s |
 | ZeroEntropy unreachable | Reranking unavailable | health-intelligence falls back to raw cosine scores; no data loss |

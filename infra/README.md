@@ -68,9 +68,10 @@ token with the appropriate scopes.
 4. Run the one-time consent flow to get a refresh token:
 
    ```sh
-   python agent-b/scripts/google_oauth.py \
+   python agent-b/coach/calendar_sync.py \
      --client-id $GOOGLE_CLIENT_ID \
-     --client-secret $GOOGLE_CLIENT_SECRET
+     --client-secret $GOOGLE_CLIENT_SECRET \
+     --auth-only
    ```
 
 5. Add credentials to `infra/.env`:
@@ -212,7 +213,7 @@ No data loss across a full restart.
 
 ### Rotate Google OAuth credentials
 
-Run the consent flow again with `python agent-b/scripts/google_oauth.py`, update
+Run the consent flow again with `python agent-b/coach/calendar_sync.py --auth-only`, update
 `GOOGLE_REFRESH_TOKEN` in `.env`, then restart Agent B: `openclaw skill restart agent-b`.
 
 ## Directory layout (when populated)
