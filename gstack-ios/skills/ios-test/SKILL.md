@@ -42,13 +42,22 @@ Assumes:
    `gstack-ios/.cache/ios-build-<scheme>-Debug.json`. If absent or stale,
    run `/ios-build` first; if that fails, abort with the build failure
    cited.
-2. **Enumerate tests** (cheap discovery — fails fast if the scheme has no
-   Test action):
+2. **Build for testing first** — this also discovers whether any test
+   targets exist:
    ```
-   xcodebuild test-without-building -workspace ... -scheme ... \
-     -destination ... -enumerate-tests 2>&1
+   xcodebuild build-for-testing \
+     -workspace "$workspace" -scheme "$scheme" \
+     -destination "$destination" \
+     -derivedDataPath gstack-ios/.cache/derived-data/ 2>&1
    ```
-   If the count is zero, emit the **no-tests meta-finding** and stop.
+   After this completes, look for `.xctestrun` files under
+   `gstack-ios/.cache/derived-data/Build/Products/`. If none exist, the
+   scheme has no test targets — emit the **no-tests meta-finding** and
+   stop.
+
+   The `.xctestrun` file is a plist listing every test bundle and the
+   tests inside; `plutil -convert json -o - <file>` gives a parseable
+   view of what would run.
 3. **Run tests.**
    ```
    xcodebuild test -workspace ... -scheme ... -destination ... \

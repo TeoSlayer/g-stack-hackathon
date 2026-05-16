@@ -48,11 +48,17 @@ Assumes:
    ```
    diff -u project.pbxproj.before *.xcodeproj/project.pbxproj
    ```
-5. **Classify each hunk:**
-   - `whitespace` — only blank lines or trailing space changed.
-   - `ordering` — same lines, different order.
-   - `file_uuid_churn` — only `{HEX}` UUID values changed; structure
-     identical.
+5. **Classify each hunk** by inspecting the changed lines:
+   - `whitespace` — every changed line is blank or whitespace-only when
+     stripped.
+   - `ordering` — every removed line appears verbatim as an added line
+     elsewhere in the diff and vice versa (i.e. the multiset of changed
+     lines is unchanged). Detect by `sort` of removed lines ==
+     `sort` of added lines.
+   - `file_uuid_churn` — every difference is in a 24-hex-char token
+     (pbxproj's object identifiers); the surrounding structure is
+     identical when UUIDs are normalised. Detect by substituting
+     `[A-F0-9]{24}` → `UUID` on both sides and re-diffing.
    - `target_change` — a `PBXNativeTarget` or `PBXAggregateTarget` block
      changed.
    - `build_setting_change` — a `buildSettings` dict changed.

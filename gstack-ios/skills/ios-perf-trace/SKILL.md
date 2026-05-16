@@ -51,14 +51,23 @@ Assumes:
      --output "$out" \
      <attach_or_launch_args>
    ```
-3. **Export structured data:**
+3. **Export structured data.** Discover the schemas available in this
+   trace first — they vary per Instruments template and per Xcode
+   version:
+   ```
+   xcrun xctrace export --input "$out" --toc
+   ```
+   then export the relevant tables:
    ```
    xcrun xctrace export \
      --input "$out" \
-     --xpath '//trace-toc/run/data/table[@schema="time-profile" or
-              @schema="allocations" or @schema="energy-usage"]' \
+     --xpath '/trace-toc/run/data/table[@schema="<schema>"]' \
      --output /tmp/trace-export.xml
    ```
+   Common schemas: `time-profile`, `time-sample`, `allocations`,
+   `energy-usage`, `core-animation-fps`. If a requested schema isn't in
+   the TOC, skip it gracefully — Xcode versions differ.
+
    Parse the XML by schema. Normalise into a common summary shape.
 4. **Summarise per template:**
    - **Time Profiler:** top 10 symbols by self-time and inclusive-time;

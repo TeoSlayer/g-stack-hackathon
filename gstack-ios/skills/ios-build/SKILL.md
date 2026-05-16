@@ -64,15 +64,24 @@ Assumes:
    ```
    Capture exit code via `${PIPESTATUS[0]}`.
 5. **Parse `build.log`.**
-   - **Errors:** lines matching `^(.+):(\d+):(\d+): error: (.+)$` →
-     `{file, line, column, message}`.
-   - **Warnings:** same shape, categorise via message prefix:
+   - **Errors with location:** lines matching
+     `^(.+):(\d+):(\d+): error: (.+)$` → `{file, line, column, message}`.
+   - **Errors without location** (linker, signing, etc.): lines matching
+     `^(error|ld|clang)(:| ): (.+)$` that didn't already match above →
+     `{file: null, line: null, message}`. Don't drop these — they're the
+     usual cause of "build failed but no clear error" reports.
+   - **Warnings:** lines matching `^(.+):(\d+):(\d+): warning: (.+)$`,
+     same shape as located errors. Categorise via message prefix:
      `deprecated` → `deprecation`, `implicit use of 'self'` →
      `implicit-self`, `Sendable` → `sendable`, `unused` → `unused`, else
      `other`.
-   - **Compiled files:** count `^CompileSwift ` and `^CompileC `.
-   - **Duration:** parse the elapsed time from xcodebuild's trailer,
-     fallback to wall-clock.
+   - **Compiled files:** count lines matching
+     `^(SwiftCompile|CompileSwift|CompileC|CompileXIB|CompileStoryboard)\b`.
+     Modern Xcode uses `SwiftCompile`; older verbose output uses
+     `CompileSwift`. Both forms count.
+   - **Duration:** parse the elapsed time from xcodebuild's trailer
+     (`** BUILD SUCCEEDED **` / `** BUILD FAILED **` followed by a time);
+     fallback to measured wall-clock.
 6. **Emit report.** Write JSON to
    `gstack-ios/.cache/ios-build-<scheme>-<config>.json`. Echo a one-line
    summary to stdout:

@@ -39,7 +39,11 @@ Optional:
 Assumes:
 - Roots are Swift source — Objective-C wiring checking is a separate
   beast.
-- `ripgrep` or `grep` is available.
+- `ripgrep` is available (preferred over `grep` for performance and
+  type-aware filtering).
+- For more accurate parsing than regex, the project may opt in to
+  `swift-syntax` via a small helper that emits a JSON declaration index;
+  the skill falls back to regex when the helper isn't present.
 
 ## Procedure
 

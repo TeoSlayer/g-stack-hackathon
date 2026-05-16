@@ -46,16 +46,29 @@ Assumes:
    with the host app's `.app` bundle).
 3. **Boot the simulator** and launch the host app once to register the
    widget bundle.
-4. **For each family:**
-   - Use `xcrun simctl spawn <device> WidgetKitDeveloperUtility` if
-     available (Xcode 15+) to render the widget directly. Fallback path:
-     long-press scripted via accessibility XPC — out of scope for v0.1;
-     document the gap.
-   - Capture the rendered PNG to
-     `gstack-ios/.cache/widget-previews/<scheme>-<family>-<ts>.png`.
-   - Verify PNG dimensions match the family's expected size (e.g.
-     `systemMedium` on iPhone 15 = 338×158pt × scale).
-5. **Compose report.**
+4. **For each family,** render via one of these paths in order of
+   preference:
+   - **SwiftUI #Preview macro** — if the widget's view exposes
+     `#Preview(as: .systemSmall)` etc., use `xcrun swift package preview`
+     (Xcode 16+) to render to PNG. This is the cleanest path when the
+     project opts in.
+   - **Snapshot test target** — if the project has a snapshot test
+     target wired (e.g. via `swift-snapshot-testing`), invoke that test
+     plan via `/ios-test` and pull the resulting reference images. The
+     snapshot test is the closest thing iOS has to a first-party
+     headless widget renderer.
+   - **Manual simulator capture (fallback).** Boot the sim, add the
+     widget to the home screen via UI scripting (`xcrun simctl ui ...`
+     where available), screenshot the home screen, crop to the widget
+     bounds. Document this path as fragile — touch coordinates change
+     per device size.
+
+   Capture the rendered PNG to
+   `gstack-ios/.cache/widget-previews/<scheme>-<family>-<ts>.png`.
+   Verify PNG dimensions match the family's expected size (e.g.
+   `systemMedium` on iPhone 15 ≈ 338×158pt × scale).
+5. **Compose report.** Flag the path used per family so callers know
+   how reliable each rendered image is.
 
 ## Outputs
 
