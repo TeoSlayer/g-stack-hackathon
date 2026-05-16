@@ -33,6 +33,11 @@ wrong thing.
   iOS → `generic/platform=iOS Simulator`; watchOS →
   `generic/platform=watchOS Simulator`; macOS →
   `generic/platform=macOS`.
+- `archs` — Default on Apple Silicon hosts: `arm64` with
+  `ONLY_ACTIVE_ARCH=YES`. Avoids the common trap where a project
+  links against an `arm64`-only xcframework and the simulator build's
+  default `x86_64` slice fails at link time. Pass `archs=universal`
+  to opt back into building both slices.
 - `configuration` — `Debug` (default) or `Release`.
 - `derived_data` — Default: project-local `build/` (must be gitignored).
 - `clean` — bool, default `false`. If true, runs `clean` before `build`.
@@ -150,6 +155,14 @@ Field order is stable; new fields go at the end with sensible defaults.
   code-signing → `/ios-signing-doctor`.
 - If `ok: false` and step 2 raised a drift warning → `/ios-xcodegen`
   to regenerate, then re-run.
+- If `ok: false` and the error log contains `symbol(s) not found for
+  architecture` OR `xcframework ... is missing architecture(s)
+  required by this target` → an Apple Silicon host trying to link
+  against an `arm64`-only xcframework while xcodebuild defaults to
+  building both `arm64` + `x86_64` slices. Re-run with
+  `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES`. Long-term fix: rebuild the
+  xcframework with x86_64 slices, or pin its `ONLY_ACTIVE_ARCH=YES`
+  in `project.yml`.
 - If `ok: false` and no errors are surfaced in the parser → the
   parser itself is wrong; read `log_path` directly and file a skill
   bug.

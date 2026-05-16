@@ -11,7 +11,7 @@ struct LocationMapView: View {
     @State private var readings: [LocatedReading] = []
     @State private var cells: [HexCell] = []
     @State private var metric: MapMetric = .hrv
-    @State private var edgeMeters: Double = 200
+    @State private var edgeMeters: Double = 400
     @State private var daysBack: Double = 90
     @State private var loading = false
     @State private var camera: MapCameraPosition = .automatic
@@ -19,6 +19,14 @@ struct LocationMapView: View {
     @State private var photosAuthBanner: PhotoBannerState = .checking
 
     enum PhotoBannerState { case checking, granted, missing }
+
+    /// Target hexes across the smaller visible-region dimension. Higher → finer
+    /// grid, smaller hexes; lower → coarser, bigger hexes. ~30 is the sweet
+    /// spot where hexes are big enough to see at any zoom and small enough to
+    /// resolve distinct places.
+    private let targetHexesAcross: Double = 30
+    private let minEdgeMeters: Double = 30
+    private let maxEdgeMeters: Double = 8000
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -30,17 +38,24 @@ struct LocationMapView: View {
                 }
             }
             .mapStyle(.standard(elevation: .flat))
+            .onMapCameraChange(frequency: .onEnd) { ctx in
+                adjustHexSize(for: ctx.region)
+            }
 
             VStack(spacing: 8) {
                 LegendBar(metric: metric, vMin: stats.vMin, vMax: stats.vMax)
                 MetricPicker(metric: $metric)
                 HStack(spacing: 12) {
-                    Stepper(value: $edgeMeters, in: 50...2000, step: 50) {
-                        Text("Hex \(Int(edgeMeters))m").font(.caption.monospacedDigit())
+                    HStack(spacing: 4) {
+                        Image(systemName: "hexagon")
+                        Text("\(formatEdge(edgeMeters))").font(.caption.monospacedDigit())
                     }
+                    .foregroundStyle(.secondary)
+                    Spacer()
                     Stepper(value: $daysBack, in: 7...365, step: 7) {
                         Text("\(Int(daysBack))d").font(.caption.monospacedDigit())
                     }
+                    .fixedSize()
                 }
                 .padding(.horizontal, 4)
             }
@@ -48,7 +63,7 @@ struct LocationMapView: View {
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
-            .opacity(loading && samples.isEmpty ? 0.65 : 1)
+            .opacity(loading && readings.isEmpty ? 0.65 : 1)
 
             if loading && readings.isEmpty {
                 VStack(spacing: 10) {
@@ -132,6 +147,39 @@ struct LocationMapView: View {
         let lo = vals.min() ?? 0
         let hi = vals.max() ?? 1
         stats = (lo, max(hi, lo + 0.0001), cs.count)
+    }
+
+    /// Re-pick hex edge based on the visible region. Bigger hexes when zoomed
+    /// out, smaller when zoomed in — so cells are always roughly the same
+    /// on-screen size. Only recomputes if the change is ≥15 % to avoid jitter
+    /// during small pan/pinch deltas.
+    private func adjustHexSize(for region: MKCoordinateRegion) {
+        let latMeters = region.span.latitudeDelta * 111_000
+        let cosLat = cos(region.center.latitude * .pi / 180)
+        let lonMeters = region.span.longitudeDelta * 111_000 * max(cosLat, 0.01)
+        let visibleSpan = min(latMeters, lonMeters)
+        guard visibleSpan > 0 else { return }
+        let target = (visibleSpan / targetHexesAcross)
+            .clamped(to: minEdgeMeters...maxEdgeMeters)
+        // Snap to a tidy step so the readout doesn't bounce between 187 / 192 / 201 m.
+        let snapped = snapToBucket(target)
+        guard abs(snapped - edgeMeters) / max(edgeMeters, 1) > 0.15 else { return }
+        edgeMeters = snapped
+        recomputeCells()
+    }
+
+    /// Round to the nearest "nice" hex size so the user sees stable numbers.
+    private func snapToBucket(_ x: Double) -> Double {
+        let buckets: [Double] = [
+            30, 50, 80, 120, 200, 300, 500, 800,
+            1200, 2000, 3000, 5000, 8000
+        ]
+        return buckets.min(by: { abs($0 - x) < abs($1 - x) }) ?? x
+    }
+
+    private func formatEdge(_ m: Double) -> String {
+        if m >= 1000 { return String(format: "%.1f km", m / 1000) }
+        return "\(Int(m)) m"
     }
 
     private func color(for cell: HexCell) -> Color {

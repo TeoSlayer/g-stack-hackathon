@@ -8,18 +8,29 @@ struct SplashView: View {
     @ObservedObject var net = NetworkMonitor.shared
     @State private var pulse = false
     @State private var ringRotation = 0.0
+    @State private var appearedAt = Date()
 
     var body: some View {
         ZStack {
+            // Base gradient — dark navy matching the launch screen + app icon.
             LinearGradient(
                 colors: [Color(red: 0.12, green: 0.14, blue: 0.20),
                          Color(red: 0.05, green: 0.07, blue: 0.12)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ).ignoresSafeArea()
 
-            VStack(spacing: 28) {
-                AnimatedHeartLogo(pulse: $pulse, rotation: $ringRotation)
-                    .frame(width: 120, height: 120)
+            // Vignette — radial darken toward the corners. Sells "depth" so the
+            // flat gradient doesn't read as untextured wallpaper.
+            RadialGradient(
+                colors: [.clear, .black.opacity(0.45)],
+                center: .center,
+                startRadius: 80,
+                endRadius: 520
+            ).ignoresSafeArea()
+
+            VStack(spacing: 24) {
+                MascotLogo(pulse: $pulse, rotation: $ringRotation)
+                    .frame(width: 140, height: 140)
 
                 Text("HealthSync")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -48,22 +59,60 @@ struct SplashView: View {
                         .padding(.horizontal, 32)
                         .frame(maxWidth: 360)
                         .transition(.opacity)
-                        .id(manager.currentActivity)  // re-animate per change
+                        .id(manager.currentActivity)
+                }
+
+                // Backfill hint: if we've been on the splash >4 s and still no
+                // first sync, set expectation that initial backfill takes a
+                // minute or two. Beats a frozen-looking spinner.
+                if showsBackfillHint {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small).tint(.white)
+                        Text("Backfilling last 30 days of HealthKit — usually 1–2 min on a typical Watch.")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.6))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal, 32)
+                    .frame(maxWidth: 360)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+
+                // First-launch hint: when the iOS Health Access sheet is up,
+                // the user sees a long list of toggles with no context.
+                if manager.authorizationStatus == "—" {
+                    Text("When the **Health Access** sheet appears, tap **Turn On All** so HealthSync can read your data. Nothing leaves your device without your say-so.")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                        .frame(maxWidth: 360)
+                        .padding(.top, 4)
                 }
             }
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+            appearedAt = Date()
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                 pulse = true
             }
-            withAnimation(.linear(duration: 12).repeatForever(autoreverses: false)) {
+            withAnimation(.linear(duration: 6).repeatForever(autoreverses: false)) {
                 ringRotation = 360
             }
         }
     }
+
+    /// Show the "this is normal, hang on" line if we've been here for >4 s and
+    /// the first sync hasn't completed.
+    private var showsBackfillHint: Bool {
+        manager.lastSyncDate == nil
+            && Date().timeIntervalSince(appearedAt) > 4
+    }
 }
 
-private struct AnimatedHeartLogo: View {
+/// Pulsing mascot logo with rotating angular-gradient ring. Uses the actual
+/// app icon image so on-screen branding matches the home-screen icon.
+private struct MascotLogo: View {
     @Binding var pulse: Bool
     @Binding var rotation: Double
     var body: some View {
@@ -77,17 +126,21 @@ private struct AnimatedHeartLogo: View {
                     style: StrokeStyle(lineWidth: 3, lineCap: .round)
                 )
                 .rotationEffect(.degrees(rotation))
+                .padding(4)
             // Pulsing inner glow
             Circle()
-                .fill(.pink.opacity(0.18))
+                .fill(.pink.opacity(0.22))
                 .scaleEffect(pulse ? 0.95 : 0.7)
-                .blur(radius: 12)
-            // Heart symbol
-            Image(systemName: "heart.fill")
-                .font(.system(size: 42, weight: .bold))
-                .foregroundStyle(.pink)
-                .scaleEffect(pulse ? 1.08 : 1.0)
-                .shadow(color: .pink.opacity(0.5), radius: pulse ? 12 : 6)
+                .blur(radius: 18)
+            // The actual app icon — clipped to a circle so the asset's square
+            // background doesn't fight the rotating ring.
+            Image("Mascot")
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .clipShape(Circle())
+                .padding(14)
+                .scaleEffect(pulse ? 1.04 : 1.0)
+                .shadow(color: .pink.opacity(0.45), radius: pulse ? 16 : 8)
         }
     }
 }

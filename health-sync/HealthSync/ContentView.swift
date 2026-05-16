@@ -3,15 +3,15 @@ import Charts
 
 struct ContentView: View {
     @EnvironmentObject var manager: HealthSyncManager
+    /// Hard cap so a fresh install with no HK data ever doesn't sit on the
+    /// splash forever — set to true after 6 s regardless of readiness.
+    @State private var splashTimedOut = false
 
     var body: some View {
         ZStack {
             TabView {
                 NavigationStack { StatusTab() }
                     .tabItem { Label("Status", systemImage: "heart.text.square") }
-
-                NavigationStack { CalendarView() }
-                    .tabItem { Label("Calendar", systemImage: "calendar") }
 
                 NavigationStack { TrendsView() }
                     .tabItem { Label("Trends", systemImage: "chart.line.uptrend.xyaxis") }
@@ -29,11 +29,16 @@ struct ContentView: View {
             }
         }
         .animation(.easeOut(duration: 0.35), value: showSplash)
+        .task {
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            splashTimedOut = true
+        }
     }
 
     /// Splash stays up until either Readiness has been calibrated OR ~6 s have
     /// passed (so a fresh install with no HK data doesn't get stuck forever).
     private var showSplash: Bool {
+        if splashTimedOut { return false }
         if manager.readiness.band != .unknown { return false }
         if !manager.recentSyncs.isEmpty { return false }
         return true
@@ -90,6 +95,33 @@ private struct StatusTab: View {
         .refreshable {
             await manager.pingServer()
             await manager.syncAll(reason: "pull-to-refresh")
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task {
+                        await manager.pingServer()
+                        await manager.syncAll(reason: "force")
+                    }
+                } label: {
+                    if manager.isWorking {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise.circle.fill")
+                            .imageScale(.large)
+                    }
+                }
+                .disabled(manager.isWorking || !canForceSync)
+                .accessibilityLabel("Force sync now")
+            }
+        }
+    }
+
+    /// Force-sync gate: HTTP always allowed; Pilot needs daemon + trust ready.
+    private var canForceSync: Bool {
+        switch manager.transportKind {
+        case .http:  return true
+        case .pilot: return manager.pilotConfigured && PilotBoot.shared.isReady
         }
     }
 
@@ -152,9 +184,10 @@ private struct WarningRow: View {
 
 private struct ActivityAndControlsView: View {
     @EnvironmentObject var manager: HealthSyncManager
+    @ObservedObject private var pilot = PilotBoot.shared
     var body: some View {
         List {
-            Section("Sync") {
+            Section("Sync (\(manager.transportKind.displayName))") {
                 Button {
                     Task { await manager.syncAll(reason: "manual") }
                 } label: {
@@ -164,10 +197,18 @@ private struct ActivityAndControlsView: View {
                         if manager.isWorking { ProgressView().controlSize(.small) }
                     }
                 }
-                .disabled(manager.isWorking)
+                .disabled(manager.isWorking || !canSync)
                 Button {
                     Task { await manager.pingServer() }
-                } label: { Label("Ping server", systemImage: "wave.3.right") }
+                } label: {
+                    Label("Ping \(pingTargetName)", systemImage: "wave.3.right")
+                }
+                .disabled(!canPing)
+                if !canSync {
+                    Text(syncBlockedReason)
+                        .font(.footnote).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Section("Recent events") {
                 if manager.recentSyncs.isEmpty && manager.isWorking {
@@ -191,6 +232,32 @@ private struct ActivityAndControlsView: View {
         }
         .navigationTitle("Activity")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var pingTargetName: String {
+        switch manager.transportKind {
+        case .http:  return "server"
+        case .pilot: return manager.pilotConfigured ? "peer" : "(no peer)"
+        }
+    }
+    private var canPing: Bool {
+        switch manager.transportKind {
+        case .http:  return true
+        case .pilot: return manager.pilotConfigured && pilot.daemonState == .running
+        }
+    }
+    private var canSync: Bool {
+        switch manager.transportKind {
+        case .http:  return true
+        case .pilot: return manager.pilotConfigured && pilot.isReady
+        }
+    }
+    private var syncBlockedReason: String {
+        if manager.transportKind != .pilot { return "" }
+        if !manager.pilotConfigured        { return "Add a remote node in Settings → Transport → Pilot before syncing." }
+        if pilot.daemonState != .running   { return "Pilot daemon isn't running. Restart it from Settings." }
+        if !pilot.trustState.canSend       { return "Pilot trust not established. Open Settings → Pilot → Establish trust, then have the homelab run `pilotctl approve`." }
+        return ""
     }
 }
 
@@ -251,6 +318,65 @@ private struct ReadinessHero: View {
     }
 }
 
+/// Compact, transport-specific footer shown under the Status hero when the
+/// Pilot transport is active. Quick glance: trust state, last ping, last send.
+private struct PilotStatusStrip: View {
+    @EnvironmentObject var manager: HealthSyncManager
+    @ObservedObject var pilot = PilotBoot.shared
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if !manager.pilotConfigured {
+                Label("No remote node — Settings → Transport → Pilot",
+                      systemImage: "antenna.radiowaves.left.and.right.slash")
+                    .font(.caption.bold())
+                    .foregroundStyle(.orange)
+            } else {
+                HStack(spacing: 6) {
+                    trustChip
+                    Spacer()
+                    if let when = pilot.lastHealthAt {
+                        Image(systemName: pilot.lastPingOK ? "checkmark.circle" : "xmark.circle")
+                        Text("pinged")
+                        // `Text(date, style: .relative)` is iOS's self-updating
+                        // relative-time view — refreshes on its own once a second
+                        // and outputs "0s ago" cleanly instead of "in 0 seconds".
+                        Text(when, style: .relative).monospacedDigit()
+                    } else {
+                        Label("never pinged", systemImage: "questionmark.circle")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(pilot.lastHealthAt == nil
+                                 ? .secondary
+                                 : (pilot.lastPingOK ? .secondary : .orange))
+                if let sent = pilot.lastSuccessfulSendAt {
+                    HStack(spacing: 4) {
+                        Text("Last envelope shipped")
+                        Text(sent, style: .relative).monospacedDigit()
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var trustChip: some View {
+        let (label, color): (String, Color) = {
+            switch pilot.trustState {
+            case .trusted:       return ("trusted",            .green)
+            case .handshakeSent: return ("handshake pending",  .yellow)
+            case .lost:          return ("trust lost",         .red)
+            case .unknown:       return ("trust unknown",      .orange)
+            case .noPeer:        return ("no peer",            .secondary)
+            }
+        }()
+        Label(label, systemImage: pilot.trustState == .trusted
+              ? "lock.shield.fill" : "lock.open.fill")
+            .foregroundStyle(color)
+    }
+}
+
 private struct ActivityRow: View {
     let event: HealthSyncManager.SyncEvent
     var body: some View {
@@ -271,6 +397,7 @@ private struct ActivityRow: View {
 private struct StatusHero: View {
     @EnvironmentObject var manager: HealthSyncManager
     @ObservedObject var net = NetworkMonitor.shared
+    @ObservedObject var pilot = PilotBoot.shared
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
@@ -300,22 +427,57 @@ private struct StatusHero: View {
             HStack {
                 Label(net.connection.rawValue, systemImage: netIcon)
                 Spacer()
-                Label(manager.serverReachable ? "server up" : "server down",
-                      systemImage: manager.serverReachable ? "checkmark.icloud" : "icloud.slash")
-                    .foregroundStyle(manager.serverReachable ? .green : .secondary)
+                transportBadge
             }
             .font(.subheadline)
+            if manager.transportKind == .pilot {
+                PilotStatusStrip()
+                    .padding(.top, 4)
+            }
         }
         .padding(.vertical, 4)
     }
 
+    /// Compact transport indicator. HTTP → cloud icon + reachable state.
+    /// Pilot → antenna icon + daemon/trust state.
+    @ViewBuilder
+    private var transportBadge: some View {
+        switch manager.transportKind {
+        case .http:
+            Label(manager.serverReachable ? "server up" : "server down",
+                  systemImage: manager.serverReachable ? "checkmark.icloud" : "icloud.slash")
+                .foregroundStyle(manager.serverReachable ? .green : .secondary)
+        case .pilot:
+            Label(pilot.summary,
+                  systemImage: pilot.isReady
+                    ? "antenna.radiowaves.left.and.right"
+                    : "antenna.radiowaves.left.and.right.slash")
+                .foregroundStyle(pilot.isReady ? .green : .orange)
+                .lineLimit(1)
+        }
+    }
+
     private var stateColor: Color {
+        if manager.transportKind == .pilot {
+            if !manager.pilotConfigured        { return .orange }
+            if pilot.daemonState != .running   { return .red }
+            if !pilot.trustState.canSend       { return .orange }
+            if let d = manager.lastSyncDate,
+               Date().timeIntervalSince(d) < 15 * 60 { return .green }
+            return .yellow
+        }
         if !manager.serverReachable { return .orange }
         if let d = manager.lastSyncDate, Date().timeIntervalSince(d) < 15 * 60 { return .green }
         return .yellow
     }
     private var stateText: String {
-        if !manager.serverReachable { return "Paused — server unreachable" }
+        if manager.transportKind == .pilot {
+            if !manager.pilotConfigured        { return "Paused — add a remote node" }
+            if pilot.daemonState != .running   { return "Paused — Pilot daemon down" }
+            if !pilot.trustState.canSend       { return "Paused — peer trust pending" }
+        } else if !manager.serverReachable {
+            return "Paused — server unreachable"
+        }
         if manager.lastSyncDate == nil { return "Awaiting first sync" }
         return "Syncing"
     }
@@ -335,53 +497,196 @@ private struct StatusHero: View {
     }
 }
 
+fileprivate func relative(_ d: Date) -> String {
+    let f = RelativeDateTimeFormatter()
+    f.unitsStyle = .abbreviated
+    return f.localizedString(for: d, relativeTo: Date())
+}
+
 // MARK: Settings
 
 private struct SettingsTab: View {
     @EnvironmentObject var manager: HealthSyncManager
+    @ObservedObject private var pilot = PilotBoot.shared
     @State private var draftURL: String = ""
     @State private var editing = false
+    @State private var draftPilotAddr: String = ""
+    @State private var draftPilotID:   String = ""
+    @State private var editingPilot = false
 
     var body: some View {
         Form {
-            Section("Server") {
-                if editing {
-                    TextField("http://192.168.5.66:8100", text: $draftURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                    HStack {
-                        Button("Cancel") { editing = false }
-                        Spacer()
-                        Button("Save") {
-                            manager.updateServerURL(draftURL.trimmingCharacters(in: .whitespacesAndNewlines))
-                            editing = false
-                        }
-                        .disabled(URL(string: draftURL) == nil)
-                    }
-                } else {
-                    LabeledContent("URL", value: manager.serverURL)
-                    Button("Edit URL") {
-                        draftURL = manager.serverURL
-                        editing = true
-                    }
+            Section("Transport") {
+                Picker("Sync over", selection: Binding(
+                    get: { manager.transportKind },
+                    set: { manager.updateTransport($0) }
+                )) {
+                    Label(TransportKind.http.displayName, systemImage: TransportKind.http.symbol)
+                        .tag(TransportKind.http)
+                    Label(TransportKind.pilot.displayName, systemImage: TransportKind.pilot.symbol)
+                        .tag(TransportKind.pilot)
+                }
+                if manager.transportKind == .pilot && !manager.pilotConfigured {
+                    Label("Pilot is unavailable — add a remote node below.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(.orange)
                 }
             }
-            Section("Wake window") {
-                Stepper(value: Binding(
-                    get: { manager.wakeStartHour },
-                    set: { manager.updateWakeWindow(start: $0, end: manager.wakeEndHour) }
-                ), in: 0...23) {
-                    LabeledContent("Start", value: String(format: "%02d:00", manager.wakeStartHour))
+            if manager.transportKind == .http {
+                Section("Server (HTTP)") {
+                    if editing {
+                        TextField("http://192.168.5.66:8100", text: $draftURL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                        HStack {
+                            Button("Cancel") { editing = false }
+                            Spacer()
+                            Button("Save") {
+                                manager.updateServerURL(draftURL.trimmingCharacters(in: .whitespacesAndNewlines))
+                                editing = false
+                            }
+                            .disabled(URL(string: draftURL) == nil)
+                        }
+                    } else {
+                        LabeledContent("URL", value: manager.serverURL)
+                        Button("Edit URL") {
+                            draftURL = manager.serverURL
+                            editing = true
+                        }
+                    }
                 }
-                Stepper(value: Binding(
-                    get: { manager.wakeEndHour },
-                    set: { manager.updateWakeWindow(start: manager.wakeStartHour, end: $0) }
-                ), in: 0...23) {
-                    LabeledContent("End", value: String(format: "%02d:00", manager.wakeEndHour))
+            } else {
+                Section("Pilot daemon") {
+                    HStack {
+                        Image(systemName: pilot.isReady ? "checkmark.circle.fill"
+                                                        : "exclamationmark.triangle.fill")
+                            .foregroundStyle(pilot.isReady ? .green : .orange)
+                        Text(pilot.summary).font(.subheadline.bold())
+                    }
+                    if let node = pilot.localNode {
+                        LabeledContent("This device addr", value: node.address)
+                        LabeledContent("This device id",   value: "\(node.nodeID)")
+                        LabeledContent("Public key",       value: node.publicKeyPrefix + "…")
+                            .font(.caption.monospacedDigit())
+                    } else {
+                        Text("Daemon not running — local identity unavailable.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    LabeledContent("Last ping") {
+                        if let when = pilot.lastHealthAt {
+                            Text(when, style: .relative).monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("—").foregroundStyle(.secondary)
+                        }
+                    }
+                    LabeledContent("Last ping result",
+                        value: pilot.lastPingOK ? "ok" : "—")
+                    HStack {
+                        Button("Restart") {
+                            Task {
+                                PilotBoot.shared.stop()
+                                await PilotBoot.shared.start()
+                            }
+                        }
+                        Spacer()
+                        Button("Ping now") {
+                            Task { await PilotBoot.shared.pingOnce() }
+                        }
+                        Spacer()
+                        Button("Refresh trust") {
+                            _ = PilotBoot.shared.refreshTrust()
+                        }
+                        .disabled(!manager.pilotConfigured)
+                    }
+                    .buttonStyle(.bordered)
+                    if let err = pilot.lastError {
+                        Text("Last error: \(err)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.red)
+                    }
                 }
-                Text("Behavioural reminders (e.g. \"wear your watch\") only fire during this window.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                Section("Remote node") {
+                    if editingPilot {
+                        TextField("0:0000.0002.74EE", text: $draftPilotAddr)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .font(.body.monospacedDigit())
+                        Text("Format: `N:HHHH.HHHH.HHHH` — one colon after the network number, dots (not colons) between hex groups. From `pilotctl info` on the homelab.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        // Live preview of what will actually be saved — catches
+                        // colon-vs-dot mistakes before the user hits Save.
+                        let preview = HealthSyncManager.normalizePilotAddress(draftPilotAddr)
+                        if !draftPilotAddr.isEmpty && preview != draftPilotAddr {
+                            HStack {
+                                Image(systemName: "wand.and.stars")
+                                Text("Will save as: \(preview)").font(.caption.monospacedDigit())
+                            }
+                            .foregroundStyle(.orange)
+                        }
+                        TextField("node id (e.g. 161006)", text: $draftPilotID)
+                            .keyboardType(.numberPad)
+                        HStack {
+                            Button("Cancel") {
+                                editingPilot = false
+                                draftPilotAddr = ""
+                                draftPilotID = ""
+                            }
+                            Spacer()
+                            Button(manager.pilotConfigured ? "Save changes" : "Add remote") {
+                                let addr = draftPilotAddr.trimmingCharacters(in: .whitespacesAndNewlines)
+                                let id   = UInt32(draftPilotID) ?? 0
+                                manager.updatePilotPeer(address: addr, nodeID: id)
+                                editingPilot = false
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(draftPilotAddr.isEmpty || UInt32(draftPilotID) == nil)
+                        }
+                    } else if manager.pilotConfigured {
+                        LabeledContent("Address", value: manager.pilotPeerAddress)
+                            .font(.body.monospacedDigit())
+                        LabeledContent("Node id", value: "\(manager.pilotPeerNodeID)")
+                        LabeledContent("Trust",   value: pilot.trustState.rawValue)
+                        HStack {
+                            Button("Edit") {
+                                draftPilotAddr = manager.pilotPeerAddress
+                                draftPilotID = "\(manager.pilotPeerNodeID)"
+                                editingPilot = true
+                            }
+                            Spacer()
+                            Button("Establish trust") {
+                                Task { _ = await PilotBoot.shared.ensureTrusted() }
+                            }
+                            .disabled(pilot.daemonState != .running || pilot.trustState == .trusted)
+                            Spacer()
+                            Button("Remove", role: .destructive) {
+                                manager.clearPilotPeer()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("No remote node configured",
+                                  systemImage: "antenna.radiowaves.left.and.right.slash")
+                                .font(.subheadline.bold())
+                            Text("Run `pilotctl info` on your homelab, copy the address + node id, then add them here. Until you do, Pilot transport is unavailable and HealthSync will refuse to send over Pilot.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button {
+                                draftPilotAddr = ""
+                                draftPilotID = ""
+                                editingPilot = true
+                            } label: {
+                                Label("Add remote", systemImage: "plus.circle.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
             }
             Section("Identity") {
                 LabeledContent("Device ID", value: manager.deviceID)
@@ -391,6 +696,13 @@ private struct SettingsTab: View {
                   value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
                 LabeledContent("Build",
                   value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—")
+            }
+            Section("Explore") {
+                NavigationLink {
+                    LocationMapView()
+                } label: {
+                    Label("Location heatmap", systemImage: "map")
+                }
             }
             Section("Troubleshooting") {
                 NavigationLink {
@@ -432,8 +744,14 @@ private struct SyncHistoryView: View {
 
 /// Samples-accepted per hour over the last 24h, stacked by HealthKit type.
 /// Reads directly from the in-memory ring buffer — no extra plumbing.
+/// Last-24h sync activity as a stacked-bar chart per hour. Restricted to the
+/// top-5 types by total volume + an "Other" bucket so one giant type doesn't
+/// crush everything else into the baseline; Y-axis tick formatter uses
+/// human-readable abbreviations (1k / 10k / 1M) instead of scientific notation.
 private struct ActivityChart: View {
     let events: [HealthSyncManager.SyncEvent]
+    private let topN = 5
+
     var body: some View {
         let buckets = bucketed
         if buckets.isEmpty {
@@ -449,9 +767,19 @@ private struct ActivityChart: View {
                 .foregroundStyle(by: .value("Type", row.typeId))
             }
             .chartXAxis {
-                AxisMarks(values: .stride(by: .hour, count: 4)) { v in
+                AxisMarks(values: .stride(by: .hour, count: 4)) { _ in
                     AxisGridLine()
                     AxisValueLabel(format: .dateTime.hour())
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let n = value.as(Int.self) {
+                            Text(Self.abbrev(n))
+                        }
+                    }
                 }
             }
             .chartLegend(position: .bottom, spacing: 4)
@@ -465,21 +793,47 @@ private struct ActivityChart: View {
         let accepted: Int
     }
 
-    /// Group sample-accepted events into per-hour, per-type bars over the last 24h.
+    /// Group sample-accepted events into per-hour buckets. Anything outside
+    /// the top-N types collapses into a single "Other" series so the legend
+    /// stays readable and a single dominant type doesn't flatten everything.
     private var bucketed: [Bucket] {
         let cutoff = Date().addingTimeInterval(-24 * 3600)
         let cal = Calendar.current
-        var sums: [String: [Date: Int]] = [:]  // typeId → hour → accepted
+
+        // First pass: total per type to pick the top-N.
+        var typeTotals: [String: Int] = [:]
         for ev in events where ev.kind == "sync" && ev.success {
-            guard let typeId = ev.typeId, let accepted = ev.accepted,
-                  accepted > 0, ev.date >= cutoff else { continue }
+            guard let t = ev.typeId, let n = ev.accepted, n > 0, ev.date >= cutoff else { continue }
+            typeTotals[t, default: 0] += n
+        }
+        let topTypes = Set(typeTotals.sorted { $0.value > $1.value }
+                                    .prefix(topN)
+                                    .map(\.key))
+
+        // Second pass: bucket by hour, collapsing non-top types into "Other".
+        var sums: [String: [Date: Int]] = [:]
+        for ev in events where ev.kind == "sync" && ev.success {
+            guard let t = ev.typeId, let n = ev.accepted, n > 0, ev.date >= cutoff else { continue }
+            let label = topTypes.contains(t) ? t : "Other"
             let hour = cal.dateInterval(of: .hour, for: ev.date)?.start ?? ev.date
-            sums[typeId, default: [:]][hour, default: 0] += accepted
+            sums[label, default: [:]][hour, default: 0] += n
         }
         return sums.flatMap { typeId, hours in
             hours.map { Bucket(hour: $0.key, typeId: typeId, accepted: $0.value) }
         }
         .sorted { $0.hour < $1.hour }
+    }
+
+    /// Human-readable abbreviator for axis labels. 942000 → "942k", 1.2M → "1.2M".
+    static func abbrev(_ n: Int) -> String {
+        let a = abs(n)
+        switch a {
+        case ..<1_000:      return "\(n)"
+        case ..<10_000:     return String(format: "%.1fk", Double(n) / 1_000)
+        case ..<1_000_000:  return "\(n / 1_000)k"
+        case ..<10_000_000: return String(format: "%.1fM", Double(n) / 1_000_000)
+        default:            return "\(n / 1_000_000)M"
+        }
     }
 }
 
@@ -496,7 +850,12 @@ private struct TotalsRow: View {
                     ForEach(totals, id: \.0) { type, count in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(type).font(.caption2).foregroundStyle(.secondary)
-                            Text("\(count)").font(.callout.monospacedDigit().bold())
+                                .lineLimit(1)
+                            // Use the same abbreviator as the chart so a 942k
+                            // pill doesn't render as ambiguous "942.107" (which
+                            // depends on locale and confuses thousands vs dots).
+                            Text(ActivityChart.abbrev(count))
+                                .font(.callout.monospacedDigit().bold())
                         }
                         .padding(.horizontal, 10).padding(.vertical, 6)
                         .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))

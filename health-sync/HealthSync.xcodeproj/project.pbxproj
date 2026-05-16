@@ -10,37 +10,35 @@
 		03ABE208E653954FFA7C188B /* HealthSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0BDC7B137561E331BF1E75 /* HealthSyncManager.swift */; };
 		0FF2B6965DD24AB3D14A0AED /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4CAA6ED13D9894855579CB /* Diagnostics.swift */; };
 		1098BC588CD635EFDB480A5E /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F04405F2295A9C68F9A6A6B6 /* ModelsView.swift */; };
-		12DD1BC651DC24E0110317CA /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57CE899146C80349A70F39B /* CalendarView.swift */; };
 		1BCE687E026DB31B8C68E237 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0856C60FC0AEC904BAF152E3 /* ContentView.swift */; };
 		422395730B7AA2C3D90DACD4 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ACD6487944856E16ACDF314 /* Models.swift */; };
 		44A66230F4122A3E819DB3AB /* TrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02A8297D12920046053F31 /* TrendsView.swift */; };
 		5242208F026698FE4502C7BD /* SyncEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23FAD9C91D4296152C4F9AA0 /* SyncEndpoint.swift */; };
 		5C2B6A39BCE5D153626F6E2B /* HealthSyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5213A79BCA3BDE3936043E71 /* HealthSyncApp.swift */; };
-		5C5C92A5873B01A168953AD5 /* WCSessionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26664FB9148D718462884EA0 /* WCSessionBridge.swift */; };
 		60E0E55B476C891293367148 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DAFA7F14A31207ED589CADCA /* Assets.xcassets */; };
 		6D40966235AC5BF2425A7D2A /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 720CBABC7BBDC9ACEC7537C5 /* SplashView.swift */; };
 		6EEB8F77BB479D9E014129F7 /* InfoSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8B22C5FAC8721DFDD9839F /* InfoSheets.swift */; };
-		6F355DEEF534815753CF8641 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F7AE36D500846BBB602FD229 /* Assets.xcassets */; };
 		729EFE56EF07FB7A1B686DB2 /* HealthSyncWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EE163EAE608D81F2A8391A9E /* HealthSyncWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		7653AFB4998FCB1CC8BFA953 /* WatchHealthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD33973C23427CF6ADD60DF4 /* WatchHealthManager.swift */; };
 		7C4475382DE8EF4E2F84EA6B /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FD885AB860E8E3C80B353D /* DiagnosticsView.swift */; };
 		830CBD7D55890427DD949339 /* WorkoutRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBD7BD21C30D2FFFD6DC1039 /* WorkoutRoutes.swift */; };
+		84DB43705F1E55FB6513C5E9 /* SpecMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C485CA4FF9F125C920940D8 /* SpecMetrics.swift */; };
 		9177A1C6434EAD3BEA113D55 /* LocationSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06352EDD6F3B2147A4B8322B /* LocationSources.swift */; };
 		961864A58AD969EB7EC458BE /* LocationMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 773BC8C4E6CCD7EB12538F50 /* LocationMapView.swift */; };
-		963A4E03B1AB50D3000942AB /* HealthSyncWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 4CE78ACAE6085237D16EB5E7 /* HealthSyncWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		99B2F9F7962B64C482C93F71 /* Pilot in Frameworks */ = {isa = PBXBuildFile; productRef = 6B5AA7BEAF67C7069E4BF5B1 /* Pilot */; };
+		9F4EB4AC9E8BF07E27316353 /* SyncTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3565E55794B0FBDC4D87397A /* SyncTransport.swift */; };
 		A0949629205DE44B804BB5B5 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A271D9B5DB8936C294849EAD /* WidgetSnapshot.swift */; };
 		A38D1CB049233F77B3B84441 /* HexGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 711F05E30D134C3602CB814F /* HexGrid.swift */; };
 		A9BD6E8C6773EA71DE16642F /* PhotosLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F67ED77DCFA10CCF340FA4 /* PhotosLocationProvider.swift */; };
 		AF5F8578BB687F2F01AB16BC /* HealthSyncWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8F1E15BBD43AC25D1507DD /* HealthSyncWidget.swift */; };
 		B1981469FD3A79F49CC29DBA /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF591461757E10363BED3905 /* LocationProvider.swift */; };
 		B67E22032D177630E33C2A9F /* Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C63F4455A8EC2EA28B11FE0 /* Readiness.swift */; };
-		BD966285B63D5BD65319B47F /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A75EBC94493007920122B46 /* WatchContentView.swift */; };
 		C0F7A7E5CC6141AAFF7C5700 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C87B0A573CC55061DC8A4D /* NotificationManager.swift */; };
 		C53BD3D1C444E070AE7E9260 /* TimeSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = D87C881F7E34724C846C8401 /* TimeSeries.swift */; };
 		C82AB7FBBC4128B09E6952E5 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A271D9B5DB8936C294849EAD /* WidgetSnapshot.swift */; };
 		CB2B0661E73609A3AAD32E5B /* DataTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB48B32DE1040ED9D8C91994 /* DataTypes.swift */; };
+		D334BBF1EA03D893B2592F6C /* PilotBoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01CBFDB2956ED71EEE7DF441 /* PilotBoot.swift */; };
 		E31A011359BBC8C2E50E8B0F /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206660A9A149FC45E29D4B18 /* NetworkMonitor.swift */; };
-		EB59C7F69E87B5013CD262E8 /* HealthSyncWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A5E56998CFF4269EB31DCC7 /* HealthSyncWatchApp.swift */; };
+		FB026DA8E2F105689A2468EF /* PilotSyncTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F2113621E0FAB2306CE5FC /* PilotSyncTransport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,13 +48,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 77355015D52EB5B006E970D9;
 			remoteInfo = HealthSyncWidget;
-		};
-		963F8541DD62B387A6CE547E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F4549D80C7EEB3189A9CF84C /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 2B360D4F6DA6B01152DB55B1;
-			remoteInfo = HealthSyncWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -72,62 +63,59 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		9307EFB6C23C32219B6C5D0C /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				963A4E03B1AB50D3000942AB /* HealthSyncWatch.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		01CBFDB2956ED71EEE7DF441 /* PilotBoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotBoot.swift; sourceTree = "<group>"; };
 		06352EDD6F3B2147A4B8322B /* LocationSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSources.swift; sourceTree = "<group>"; };
 		0856C60FC0AEC904BAF152E3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1C63F4455A8EC2EA28B11FE0 /* Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Readiness.swift; sourceTree = "<group>"; };
-		1D343810F4B4383E36DAE2F1 /* HealthSync.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HealthSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D343810F4B4383E36DAE2F1 /* HealthSync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HealthSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D4CAA6ED13D9894855579CB /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		206660A9A149FC45E29D4B18 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		23FAD9C91D4296152C4F9AA0 /* SyncEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEndpoint.swift; sourceTree = "<group>"; };
-		26664FB9148D718462884EA0 /* WCSessionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WCSessionBridge.swift; sourceTree = "<group>"; };
 		2C8F1E15BBD43AC25D1507DD /* HealthSyncWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncWidget.swift; sourceTree = "<group>"; };
 		2F0BDC7B137561E331BF1E75 /* HealthSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncManager.swift; sourceTree = "<group>"; };
-		3A75EBC94493007920122B46 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
-		4CE78ACAE6085237D16EB5E7 /* HealthSyncWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HealthSyncWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3565E55794B0FBDC4D87397A /* SyncTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncTransport.swift; sourceTree = "<group>"; };
 		5213A79BCA3BDE3936043E71 /* HealthSyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncApp.swift; sourceTree = "<group>"; };
 		53C87B0A573CC55061DC8A4D /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		6ACD6487944856E16ACDF314 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		711F05E30D134C3602CB814F /* HexGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HexGrid.swift; sourceTree = "<group>"; };
 		720CBABC7BBDC9ACEC7537C5 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		773BC8C4E6CCD7EB12538F50 /* LocationMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationMapView.swift; sourceTree = "<group>"; };
-		7A5E56998CFF4269EB31DCC7 /* HealthSyncWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncWatchApp.swift; sourceTree = "<group>"; };
 		7E02A8297D12920046053F31 /* TrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsView.swift; sourceTree = "<group>"; };
+		80F2113621E0FAB2306CE5FC /* PilotSyncTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotSyncTransport.swift; sourceTree = "<group>"; };
+		8C485CA4FF9F125C920940D8 /* SpecMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpecMetrics.swift; sourceTree = "<group>"; };
 		98F67ED77DCFA10CCF340FA4 /* PhotosLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotosLocationProvider.swift; sourceTree = "<group>"; };
 		A271D9B5DB8936C294849EAD /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
-		B57CE899146C80349A70F39B /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		BB8B22C5FAC8721DFDD9839F /* InfoSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoSheets.swift; sourceTree = "<group>"; };
 		BBD7BD21C30D2FFFD6DC1039 /* WorkoutRoutes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRoutes.swift; sourceTree = "<group>"; };
-		BD33973C23427CF6ADD60DF4 /* WatchHealthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHealthManager.swift; sourceTree = "<group>"; };
 		BF591461757E10363BED3905 /* LocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationProvider.swift; sourceTree = "<group>"; };
 		D87C881F7E34724C846C8401 /* TimeSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeSeries.swift; sourceTree = "<group>"; };
 		DAFA7F14A31207ED589CADCA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DB48B32DE1040ED9D8C91994 /* DataTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTypes.swift; sourceTree = "<group>"; };
-		EE163EAE608D81F2A8391A9E /* HealthSyncWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HealthSyncWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE163EAE608D81F2A8391A9E /* HealthSyncWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HealthSyncWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F04405F2295A9C68F9A6A6B6 /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
 		F2FD885AB860E8E3C80B353D /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
-		F7AE36D500846BBB602FD229 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F97FFCB67DFC1815C3F1D8EA /* pilot-swift */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "pilot-swift"; path = "../pilot-swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E4452009DBDFBC8610956900 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99B2F9F7962B64C482C93F71 /* Pilot in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		04FE962AFCDCE2EB2C2661AA /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				1D343810F4B4383E36DAE2F1 /* HealthSync.app */,
-				4CE78ACAE6085237D16EB5E7 /* HealthSyncWatch.app */,
 				EE163EAE608D81F2A8391A9E /* HealthSyncWidget.appex */,
 			);
 			name = Products;
@@ -137,7 +125,6 @@
 			isa = PBXGroup;
 			children = (
 				DAFA7F14A31207ED589CADCA /* Assets.xcassets */,
-				B57CE899146C80349A70F39B /* CalendarView.swift */,
 				0856C60FC0AEC904BAF152E3 /* ContentView.swift */,
 				DB48B32DE1040ED9D8C91994 /* DataTypes.swift */,
 				1D4CAA6ED13D9894855579CB /* Diagnostics.swift */,
@@ -154,9 +141,13 @@
 				206660A9A149FC45E29D4B18 /* NetworkMonitor.swift */,
 				53C87B0A573CC55061DC8A4D /* NotificationManager.swift */,
 				98F67ED77DCFA10CCF340FA4 /* PhotosLocationProvider.swift */,
+				01CBFDB2956ED71EEE7DF441 /* PilotBoot.swift */,
+				80F2113621E0FAB2306CE5FC /* PilotSyncTransport.swift */,
 				1C63F4455A8EC2EA28B11FE0 /* Readiness.swift */,
+				8C485CA4FF9F125C920940D8 /* SpecMetrics.swift */,
 				720CBABC7BBDC9ACEC7537C5 /* SplashView.swift */,
 				23FAD9C91D4296152C4F9AA0 /* SyncEndpoint.swift */,
+				3565E55794B0FBDC4D87397A /* SyncTransport.swift */,
 				D87C881F7E34724C846C8401 /* TimeSeries.swift */,
 				7E02A8297D12920046053F31 /* TrendsView.swift */,
 				BBD7BD21C30D2FFFD6DC1039 /* WorkoutRoutes.swift */,
@@ -164,23 +155,12 @@
 			path = HealthSync;
 			sourceTree = "<group>";
 		};
-		1D6E404EA062B42E524AF4B8 /* HealthSyncWatch */ = {
-			isa = PBXGroup;
-			children = (
-				F7AE36D500846BBB602FD229 /* Assets.xcassets */,
-				7A5E56998CFF4269EB31DCC7 /* HealthSyncWatchApp.swift */,
-				3A75EBC94493007920122B46 /* WatchContentView.swift */,
-				BD33973C23427CF6ADD60DF4 /* WatchHealthManager.swift */,
-			);
-			path = HealthSyncWatch;
-			sourceTree = "<group>";
-		};
 		28FBFFD0D3C692B467C9E997 = {
 			isa = PBXGroup;
 			children = (
 				1618E30B30C691EB111703F1 /* HealthSync */,
-				1D6E404EA062B42E524AF4B8 /* HealthSyncWatch */,
 				BB8B0B2D91DA9E4BDA2C1F2B /* HealthSyncWidget */,
+				72A6BCE2D49036B8850F3AC3 /* Packages */,
 				400E259121892A15184BB870 /* Shared */,
 				04FE962AFCDCE2EB2C2661AA /* Products */,
 			);
@@ -189,10 +169,17 @@
 		400E259121892A15184BB870 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
-				26664FB9148D718462884EA0 /* WCSessionBridge.swift */,
 				A271D9B5DB8936C294849EAD /* WidgetSnapshot.swift */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		72A6BCE2D49036B8850F3AC3 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				F97FFCB67DFC1815C3F1D8EA /* pilot-swift */,
+			);
+			name = Packages;
 			sourceTree = "<group>";
 		};
 		BB8B0B2D91DA9E4BDA2C1F2B /* HealthSyncWidget */ = {
@@ -206,24 +193,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		2B360D4F6DA6B01152DB55B1 /* HealthSyncWatch */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 9950AFDDDBC10D16A7BC4888 /* Build configuration list for PBXNativeTarget "HealthSyncWatch" */;
-			buildPhases = (
-				A744A7A9B0233ADAF2C1BDD3 /* Sources */,
-				C2300F87D669610D4D33C731 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = HealthSyncWatch;
-			packageProductDependencies = (
-			);
-			productName = HealthSyncWatch;
-			productReference = 4CE78ACAE6085237D16EB5E7 /* HealthSyncWatch.app */;
-			productType = "com.apple.product-type.application";
-		};
 		77355015D52EB5B006E970D9 /* HealthSyncWidget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CB6C888F45388750F26F12B2 /* Build configuration list for PBXNativeTarget "HealthSyncWidget" */;
@@ -247,17 +216,17 @@
 			buildPhases = (
 				810254FFA098B3E2D484392A /* Sources */,
 				9AB4843F388D5127C037E3D8 /* Resources */,
+				E4452009DBDFBC8610956900 /* Frameworks */,
 				084B510F46FD9D72F63B62DB /* Embed Foundation Extensions */,
-				9307EFB6C23C32219B6C5D0C /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				620BDC75E2B51EFAC4E1510D /* PBXTargetDependency */,
 				8AE2A8BAAF13C095D2735569 /* PBXTargetDependency */,
 			);
 			name = HealthSync;
 			packageProductDependencies = (
+				6B5AA7BEAF67C7069E4BF5B1 /* Pilot */,
 			);
 			productName = HealthSync;
 			productReference = 1D343810F4B4383E36DAE2F1 /* HealthSync.app */;
@@ -272,16 +241,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					2B360D4F6DA6B01152DB55B1 = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
-					};
 					77355015D52EB5B006E970D9 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					892A921C4AE312FBC7AB053B = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -295,13 +258,15 @@
 			);
 			mainGroup = 28FBFFD0D3C692B467C9E997;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				CC69E8473162BE3FA4693397 /* XCLocalSwiftPackageReference "../pilot-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 04FE962AFCDCE2EB2C2661AA /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				892A921C4AE312FBC7AB053B /* HealthSync */,
-				2B360D4F6DA6B01152DB55B1 /* HealthSyncWatch */,
 				77355015D52EB5B006E970D9 /* HealthSyncWidget */,
 			);
 		};
@@ -313,14 +278,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				60E0E55B476C891293367148 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C2300F87D669610D4D33C731 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				6F355DEEF534815753CF8641 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -340,7 +297,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				12DD1BC651DC24E0110317CA /* CalendarView.swift in Sources */,
 				1BCE687E026DB31B8C68E237 /* ContentView.swift in Sources */,
 				CB2B0661E73609A3AAD32E5B /* DataTypes.swift in Sources */,
 				0FF2B6965DD24AB3D14A0AED /* Diagnostics.swift in Sources */,
@@ -357,35 +313,23 @@
 				E31A011359BBC8C2E50E8B0F /* NetworkMonitor.swift in Sources */,
 				C0F7A7E5CC6141AAFF7C5700 /* NotificationManager.swift in Sources */,
 				A9BD6E8C6773EA71DE16642F /* PhotosLocationProvider.swift in Sources */,
+				D334BBF1EA03D893B2592F6C /* PilotBoot.swift in Sources */,
+				FB026DA8E2F105689A2468EF /* PilotSyncTransport.swift in Sources */,
 				B67E22032D177630E33C2A9F /* Readiness.swift in Sources */,
+				84DB43705F1E55FB6513C5E9 /* SpecMetrics.swift in Sources */,
 				6D40966235AC5BF2425A7D2A /* SplashView.swift in Sources */,
 				5242208F026698FE4502C7BD /* SyncEndpoint.swift in Sources */,
+				9F4EB4AC9E8BF07E27316353 /* SyncTransport.swift in Sources */,
 				C53BD3D1C444E070AE7E9260 /* TimeSeries.swift in Sources */,
 				44A66230F4122A3E819DB3AB /* TrendsView.swift in Sources */,
-				5C5C92A5873B01A168953AD5 /* WCSessionBridge.swift in Sources */,
 				A0949629205DE44B804BB5B5 /* WidgetSnapshot.swift in Sources */,
 				830CBD7D55890427DD949339 /* WorkoutRoutes.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A744A7A9B0233ADAF2C1BDD3 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				EB59C7F69E87B5013CD262E8 /* HealthSyncWatchApp.swift in Sources */,
-				BD966285B63D5BD65319B47F /* WatchContentView.swift in Sources */,
-				7653AFB4998FCB1CC8BFA953 /* WatchHealthManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		620BDC75E2B51EFAC4E1510D /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 2B360D4F6DA6B01152DB55B1 /* HealthSyncWatch */;
-			targetProxy = 963F8541DD62B387A6CE547E /* PBXContainerItemProxy */;
-		};
 		8AE2A8BAAF13C095D2735569 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 77355015D52EB5B006E970D9 /* HealthSyncWidget */;
@@ -394,25 +338,11 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		3BE3F23BE567EE6CADFD8F26 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = HealthSyncWatch/HealthSyncWatch.entitlements;
-				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = HealthSyncWatch/Info.plist;
-				PRODUCT_BUNDLE_IDENTIFIER = io.vulturelabs.healthsyncs.watchkitapp;
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-			};
-			name = Release;
-		};
 		56DF0796FD76A5E41A09155D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = HealthSyncWidget/HealthSyncWidget.entitlements;
+				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				INFOPLIST_FILE = HealthSyncWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -433,6 +363,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = HealthSync/HealthSync.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = HealthSync/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -507,6 +438,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
@@ -519,6 +451,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = HealthSync/HealthSync.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = HealthSync/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -586,31 +519,18 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
 			};
 			name = Release;
 		};
-		D5CBB962B97D03A62AC4EB17 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = HealthSyncWatch/HealthSyncWatch.entitlements;
-				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = HealthSyncWatch/Info.plist;
-				PRODUCT_BUNDLE_IDENTIFIER = io.vulturelabs.healthsyncs.watchkitapp;
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-			};
-			name = Debug;
-		};
 		E1997077254685389E9B8788 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = HealthSyncWidget/HealthSyncWidget.entitlements;
+				DEVELOPMENT_TEAM = W83KWX4GJ6;
 				INFOPLIST_FILE = HealthSyncWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -637,15 +557,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		9950AFDDDBC10D16A7BC4888 /* Build configuration list for PBXNativeTarget "HealthSyncWatch" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D5CBB962B97D03A62AC4EB17 /* Debug */,
-				3BE3F23BE567EE6CADFD8F26 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 		CB6C888F45388750F26F12B2 /* Build configuration list for PBXNativeTarget "HealthSyncWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -665,6 +576,20 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		CC69E8473162BE3FA4693397 /* XCLocalSwiftPackageReference "../pilot-swift" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../pilot-swift";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6B5AA7BEAF67C7069E4BF5B1 /* Pilot */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Pilot;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F4549D80C7EEB3189A9CF84C /* Project object */;
 }

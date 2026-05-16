@@ -140,6 +140,12 @@ final class HealthSyncManager: ObservableObject {
     /// behind and a naive single-body upload balloons to 60+ MB and gets RST by the server.
     private static let chunkSize = 200
 
+    /// Rolling backfill window. The anchored query always carries a start-date
+    /// predicate so we never haul years of historical HK data through the
+    /// outbox. Matches `CHUNKING.md` — 30 days covers every on-device model at
+    /// full quality; the heatmap + CUSUM grow forward as new samples arrive.
+    static let backfillWindowDays: Int = 30
+
     static func defaultDeviceID() -> String {
         let model = UIDevice.current.model
         let name  = UIDevice.current.name.replacingOccurrences(of: " ", with: "-")
@@ -485,9 +491,19 @@ final class HealthSyncManager: ObservableObject {
     }
 
     private func anchoredQuery(type: HKSampleType, anchor: HKQueryAnchor?, limit: Int) async -> ([HKSample], HKQueryAnchor?) {
-        await withCheckedContinuation { cont in
+        // ALWAYS clamp queries to the rolling backfill window. Without this,
+        // HKAnchoredObjectQuery happily walks back years on a fresh anchor —
+        // HeartRate alone can be hundreds of thousands of samples that we
+        // then try to ship one page at a time, taking hours.
+        let cutoff = Date().addingTimeInterval(-Double(Self.backfillWindowDays) * 86_400)
+        let predicate = HKQuery.predicateForSamples(
+            withStart: cutoff,
+            end:       nil,
+            options:   .strictStartDate
+        )
+        return await withCheckedContinuation { cont in
             let q = HKAnchoredObjectQuery(
-                type: type, predicate: nil, anchor: anchor,
+                type: type, predicate: predicate, anchor: anchor,
                 limit: limit
             ) { _, samples, _, newAnchor, err in
                 if let err = err {
@@ -582,25 +598,42 @@ final class HealthSyncManager: ObservableObject {
     func scheduleBackgroundRefresh() {
         let req = BGAppRefreshTaskRequest(identifier: Self.bgRefreshIdentifier)
         req.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)  // 15 min
-        try? BGTaskScheduler.shared.submit(req)
+        do {
+            try BGTaskScheduler.shared.submit(req)
+        } catch {
+            // Common in the simulator (BG tasks unsupported) and after the
+            // user disables Background App Refresh in Settings. Log so the
+            // diagnostics tab can show why sync isn't running in background.
+            log.warning("BG refresh submit failed: \(error.localizedDescription)")
+        }
 
         let proc = BGProcessingTaskRequest(identifier: Self.bgProcessingIdentifier)
         proc.requiresExternalPower = false
         proc.requiresNetworkConnectivity = true
         proc.earliestBeginDate = Date(timeIntervalSinceNow: 60 * 60)  // 1h
-        try? BGTaskScheduler.shared.submit(proc)
+        do {
+            try BGTaskScheduler.shared.submit(proc)
+        } catch {
+            log.warning("BG processing submit failed: \(error.localizedDescription)")
+        }
     }
 
     func handleBackgroundRefresh(_ task: BGAppRefreshTask) {
         scheduleBackgroundRefresh()  // always reschedule
-        let op = Task { await syncAll(reason: "bg-refresh") }
+        let op = Task {
+            await PilotBoot.shared.ensureRunning()
+            await syncAll(reason: "bg-refresh")
+        }
         task.expirationHandler = { op.cancel() }
         Task { _ = await op.value; task.setTaskCompleted(success: true) }
     }
 
     func handleBackgroundProcessing(_ task: BGProcessingTask) {
         scheduleBackgroundRefresh()
-        let op = Task { await syncAll(reason: "bg-processing") }
+        let op = Task {
+            await PilotBoot.shared.ensureRunning()
+            await syncAll(reason: "bg-processing")
+        }
         task.expirationHandler = { op.cancel() }
         Task { _ = await op.value; task.setTaskCompleted(success: true) }
     }

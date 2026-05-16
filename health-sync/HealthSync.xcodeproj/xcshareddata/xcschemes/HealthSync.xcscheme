@@ -21,20 +21,6 @@
                ReferencedContainer = "container:HealthSync.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "2B360D4F6DA6B01152DB55B1"
-               BuildableName = "HealthSyncWatch.app"
-               BlueprintName = "HealthSyncWatch"
-               ReferencedContainer = "container:HealthSync.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

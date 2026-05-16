@@ -37,36 +37,29 @@ final class LocationProvider: NSObject, @unchecked Sendable {
     /// Returns the most recent fix, or requests a new one. Returns `nil` if
     /// permission is missing or the request times out.
     func currentFix(maxAge: TimeInterval = 300, timeout: TimeInterval = 5) async -> CLLocation? {
-        lock.lock()
-        if let c = cached, let t = cachedAt, Date().timeIntervalSince(t) < maxAge {
-            lock.unlock()
-            return c
-        }
-        if pending != nil {
-            lock.unlock()
-            // Another fix in flight — poll the cache rather than queue another continuation.
+        // Fast path: fresh cache hit.
+        if let hit = cachedHit(maxAge: maxAge) { return hit }
+
+        // Another request already in flight — poll the cache instead of
+        // queueing a second continuation.
+        let inFlight = lock.withLock { pending != nil }
+        if inFlight {
             for _ in 0..<Int(timeout * 10) {
                 try? await Task.sleep(nanoseconds: 100_000_000)
-                lock.lock()
-                if let c = cached, let t = cachedAt, Date().timeIntervalSince(t) < maxAge {
-                    lock.unlock()
-                    return c
-                }
-                lock.unlock()
+                if let hit = cachedHit(maxAge: maxAge) { return hit }
             }
             return nil
         }
+
+        // No permission → no fix.
         let status = manager.authorizationStatus
         guard status == .authorizedWhenInUse || status == .authorizedAlways else {
-            lock.unlock()
             return nil
         }
-        lock.unlock()
 
+        // Slow path: request a single fix; CL fires didUpdateLocations / didFail.
         return await withCheckedContinuation { cont in
-            lock.lock()
-            pending = cont
-            lock.unlock()
+            lock.withLock { pending = cont }
             manager.requestLocation()
             // Hard timeout — CL occasionally never delivers in poor sky conditions.
             Task { [weak self] in
@@ -76,15 +69,28 @@ final class LocationProvider: NSObject, @unchecked Sendable {
         }
     }
 
-    private func finish(with location: CLLocation?) {
-        lock.lock()
-        let cont = pending
-        pending = nil
-        if let loc = location {
-            cached = loc
-            cachedAt = Date()
+    /// Synchronous critical-section helper — returns the cached fix if it's
+    /// fresh enough, else nil. Uses `withLock` so we never hold the NSLock
+    /// across an `await`.
+    private func cachedHit(maxAge: TimeInterval) -> CLLocation? {
+        lock.withLock {
+            if let c = cached, let t = cachedAt, Date().timeIntervalSince(t) < maxAge {
+                return c
+            }
+            return nil
         }
-        lock.unlock()
+    }
+
+    private func finish(with location: CLLocation?) {
+        let cont: CheckedContinuation<CLLocation?, Never>? = lock.withLock {
+            let c = pending
+            pending = nil
+            if let loc = location {
+                cached = loc
+                cachedAt = Date()
+            }
+            return c
+        }
         cont?.resume(returning: location)
     }
 }

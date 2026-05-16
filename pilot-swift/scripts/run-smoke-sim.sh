@@ -14,8 +14,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-SWIFT_DIR="$REPO_ROOT/sdk/swift"
+SWIFT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 XCFW="$SWIFT_DIR/Frameworks/Pilot.xcframework"
 SIM_SLICE="$XCFW/ios-arm64-simulator"
 
@@ -35,7 +34,7 @@ fi
 
 # Compile.
 swiftc \
-    -target arm64-apple-ios14.0-simulator \
+    -target arm64-apple-ios16.0-simulator \
     -sdk "$SDK" \
     -I "$SIM_SLICE/Headers" \
     -Xcc -fmodule-map-file="$SIM_SLICE/Headers/module.modulemap" \
