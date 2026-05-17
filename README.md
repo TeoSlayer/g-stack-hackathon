@@ -2,59 +2,126 @@
 
 > Personal health intelligence. Your data, your agents, your network.
 
-Getting data out of Apple Health means Shortcuts automations, third-party sync apps, and a fragile stack that breaks every iOS update. We eliminated all of it.
-
-We compiled a **Go network daemon into the iOS app** and stream HealthKit samples directly to an AI agent over an encrypted, NAT-traversed tunnel — no HTTP server, no cloud middleware, no data custodian between your wrist and your agent.
-
-Ask a question on Telegram, get an answer backed by your actual biometric history and 17 peer-reviewed papers. Proactive nudges fire when your HRV drops or your burnout score crosses a threshold — before you notice it yourself.
-
 **→ [teoslayer.github.io/g-stack-hackathon](https://teoslayer.github.io/g-stack-hackathon/)**
 
 ---
 
-## The insight
+Getting data out of Apple Health means Shortcuts automations, third-party sync apps, and a fragile stack that breaks every iOS update. We eliminated all of it.
 
-The iPhone is already a computer. We made it a **network node**.
+We compiled a **Pilot Protocol daemon into the iOS app** and stream HealthKit samples directly to an AI agent. No message queues. No transport infrastructure. No data custodian between your wrist and your agent.
 
-`pilot-swift` is a precompiled Pilot Protocol daemon distributed as a static `.xcframework`, embedded inside the iOS app sandbox. There is no separate server, no cloud relay, no port forwarding. The iPhone calls one command:
+The result: two **OpenClaw** agents, each with its own **G-Brain** memory, reasoning over your health data in real time. Ask a question on Telegram — get an answer backed by your actual biometric history and 17 peer-reviewed papers.
 
-```sh
-pilotctl send-message <collector-node-id> --data '<json>'
+---
+
+## The stack
+
+### OpenClaw — agent runtime
+
+Both agents are **OpenClaw LLM agents**, not dumb Python daemons. Each has a full workspace: SOUL.md, IDENTITY.md, skill manifests, tool definitions, and its own G-Brain. OpenClaw handles the reasoning loop, tool dispatch, and the Telegram channel binding that makes the Coach answerable on demand.
+
+```
+.openclaw/
+├── collector-workspace/   # Agent A identity, skills, tools
+└── coach-workspace/       # Agent B identity, skills, tools
 ```
 
-The sample lands on the agent. E2E encrypted. NAT-traversed. Works from any network.
+### G-Brain — per-agent memory
+
+Each agent has its own **G-Brain** — a local PGLite semantic memory that accumulates context over time. They are deliberately separate:
+
+- `gbrain-collector-home` — factual observations: what HealthKit reported, when, raw counts. Never interpreted.
+- `gbrain-coach-home` — interpretations, prior nudges, follow-up hypotheses, calendar context. Never raw data.
+
+G-Brains communicate without a lot of shared priors. They converge on meaning through message exchange. Add a new agent, share its Pilot node ID — it joins the network and starts building its own memory from scratch.
+
+### Pilot Protocol — zero-infrastructure transport
+
+Every message between every node in this system is one primitive:
+
+```sh
+pilotctl send-message <target-node-id> --data '<json>'
+```
+
+No message queues. No brokers. No shared sockets. No port forwarding. The Pilot daemon delivers JSON to the target's inbox as a file. E2E encrypted with Ed25519 identity per node. NAT-traversed — works from any network.
+
+**Any endpoint that can run a Pilot daemon can feed data into an AI agent.** We compiled one into an iOS app. The same approach works for a Raspberry Pi, a Docker container, a browser extension, a wearable. The agent network expands by adding node IDs, not infrastructure.
+
+### gstack-ios — iOS development with Claude Code
+
+We extended **Claude Code** with 13 skills covering the full iOS development loop:
+
+| Skill area | What it covers |
+|---|---|
+| Build & run | `xcodebuild`, simulator boot, scheme selection |
+| Test | `XCTest`, `xcresult` parsing, test filtering |
+| Signing | Provisioning profiles, entitlements, code signing |
+| Performance | Instruments traces, memory, CPU flamegraphs |
+| Distribution | TestFlight uploads, archive, export |
+
+`health-sync` was developed using these skills. The iOS loop — build, test, install, inspect — runs entirely inside the agent.
 
 ---
 
 ## What was built
 
-### Seven deliverables
-
 | | Component | What it does | Status |
 |---|---|---|---|
-| 📱 | `pilot-swift` | Precompiled Pilot daemon as iOS xcframework + Swift wrapper | ✅ Working |
-| ⌚ | `health-sync` | iOS + watchOS + Widget. 27 on-device models. `PilotSyncTransport` sending envelopes. | ✅ Working |
-| 🏥 | `agent-a` — Collector | HealthKit ingest, UUID dedup, DuckDB warehouse, SQL gate, ChangeEvents. 84 tests. | ✅ Deployed |
-| 💬 | `agent-b` — Coach | 7 rule models, Google Calendar, Telegram via OpenClaw, RAG evidence. | ✅ Deployed |
-| 📚 | `health-intelligence` | FastAPI RAG: 17 peer-reviewed papers, 89 interventions. Alert-match + semantic retrieval. | ✅ Running |
-| 🛠 | `gstack-ios` | 13 Claude Code skills for iOS: build, test, signing, perf, TestFlight. | ✅ Active |
-| ⚙️ | `infra` | Docker Compose on GCP. Two containers, volumes, secrets, OpenClaw workspaces. | ✅ Deployed |
+| 📱 | `pilot-swift` | Precompiled Pilot daemon as iOS xcframework + Swift wrapper. Smoke test passes on Simulator. | ✅ Working |
+| ⌚ | `health-sync` | iOS + watchOS + Widget. 27 on-device models. `PilotSyncTransport` streaming envelopes to Collector. | ✅ Working |
+| 🏥 | `agent-a` — Collector | OpenClaw agent. HealthKit ingest, UUID dedup, DuckDB warehouse, SQL gate, ChangeEvents. 84 tests. | ✅ Deployed |
+| 💬 | `agent-b` — Coach | OpenClaw agent. 7 rule models, Google Calendar OAuth, Telegram UI, health-intelligence RAG skill. | ✅ Deployed |
+| 📚 | `health-intelligence` | FastAPI RAG sidecar. 17 peer-reviewed papers, 89 interventions. Alert-match + semantic retrieval. | ✅ Running |
+| 🛠 | `gstack-ios` | 13 Claude Code skills for iOS: build, test, signing, perf traces, TestFlight. | ✅ Active |
+| ⚙️ | `infra` | Docker Compose on GCP. Two OpenClaw containers, Pilot identities, G-Brain volumes, secrets. | ✅ Deployed |
 
-### Two agents, two memories
+---
 
-Both are **OpenClaw LLM agents** — not dumb Python daemons. Full reasoning context, skills, and G-Brain memory. Each owns its data and can't corrupt the other's record.
+## Architecture
 
-**Collector (`agent-a`)** — *owns facts*
-- `facts.duckdb` in Docker volume — every sample ever ingested
-- `gbrain-collector-home` — factual observations, calendar context
-- Deduplicates by UUID; acks back to iPhone before cursor advances
+```
+iPhone (HealthKit + Apple Watch)
+  └── pilot-swift — Pilot daemon compiled into app sandbox
+        │
+        │  pilotctl send-message → Collector
+        │  E2E encrypted · NAT-traversed · no infra needed
+        ▼
+┌──────────────────────────────────────────────────────────────┐
+│  GCP · Docker Compose · hackathon-openclaw                   │
+│                                                              │
+│  ┌────────────────────────────┐  ┌────────────────────────┐  │
+│  │  g-stack-agent-a           │  │  g-stack-agent-b       │  │
+│  │  OpenClaw · Collector      │  │  OpenClaw · Coach      │  │
+│  │                            │  │                        │  │
+│  │  facts.duckdb              │◄─►  gbrain-coach-home     │  │
+│  │  gbrain-collector-home     │  │  calendar_sync.py      │  │
+│  │  inbox_watcher.py          │  │  7 rule models         │  │
+│  └────────────────────────────┘  └──────────┬─────────────┘  │
+│                                             │ OpenClaw       │
+│                                       ┌─────▼──────┐        │
+│                                       │  Telegram  │        │
+│                                       └────────────┘        │
+└──────────────────────────────────────────────────────────────┘
+        │  127.0.0.1:8741
+        ▼
+  health-intelligence — FastAPI · 17 papers · 89 interventions
+  registered as OpenClaw skill in both agent workspaces
+```
 
-**Coach (`agent-b`)** — *owns interpretations*
-- `gbrain-coach-home` — what it noticed, what it told you, follow-up hypotheses
-- Calendar context from Google OAuth already in memory
-- Answers on Telegram in ≤200 words with inline citations
+### Message classification — no port routing
 
-### 27 on-device models
+The receiver classifies messages by JSON content shape. No virtual ports, no routing table, no middleware.
+
+| Content | Classified as | Action |
+|---|---|---|
+| `samples` array | HealthKit envelope | Dedupe → DuckDB → Ack to iPhone |
+| `sql` field | SQL query from Coach | Execute read-only → QueryResult |
+| `kind: "samples_added"` | ChangeEvent | Coach runs 7 rule models |
+| `agent` / `command` | Pilot overlay reply | G-Brain ingester |
+
+---
+
+## The 27 on-device models
 
 Every model runs on the iPhone. No server dependency for analysis.
 
@@ -66,11 +133,11 @@ Every model runs on the iPhone. No server dependency for analysis.
 | Tier 3 | SpO₂ Desaturation · Acoustic Load · Light Deficit · Movement Rate · Body Mass Volatility · VO₂max Trend · Burnout Velocity |
 | Tier 4 | Training Monotony · Nocturnal HR Dip · NEAT Proxy |
 
-### 7 Coach rule models
+## The 7 Coach rule models
 
-Run against `facts.duckdb` after every ChangeEvent. If a rule fires and cooldown has elapsed — insight written to G-Brain, Telegram nudge sent.
+Run against `facts.duckdb` after every ChangeEvent. If a rule fires and cooldown has elapsed — insight to G-Brain, nudge to Telegram.
 
-1. **Sleep regularity** — bedtime variance over last 14 nights
+1. **Sleep regularity** — bedtime variance, 14-night window
 2. **Autonomic balance** — HRV / RHR ratio z-score
 3. **Sedentary stress** — steps deficit vs trailing baseline
 4. **Cognitive recovery debt** — sleep debt × HRV depression
@@ -80,56 +147,10 @@ Run against `facts.duckdb` after every ChangeEvent. If a rule fires and cooldown
 
 ---
 
-## Architecture
-
-```
-iPhone (HealthKit + Apple Watch)
-  └── pilot-swift — embedded Go daemon
-        │
-        │  send-message → Collector  (E2E encrypted · NAT-traversed)
-        ▼
-┌─────────────────────────────────────────────────────────┐
-│  GCP · Docker Compose · hackathon-openclaw              │
-│                                                         │
-│  ┌──────────────────────┐   ┌───────────────────────┐  │
-│  │  Collector (agent-a) │   │  Coach (agent-b)      │  │
-│  │  OpenClaw agent      │◄──►  OpenClaw agent       │  │
-│  │  facts.duckdb        │   │  gbrain-coach-home    │  │
-│  │  gbrain-collector    │   │  calendar_sync.py     │  │
-│  └──────────────────────┘   └──────────┬────────────┘  │
-│                                        │               │
-│                                  Telegram (you)        │
-└─────────────────────────────────────────────────────────┘
-        │  127.0.0.1:8741
-        ▼
-  health-intelligence  ←  FastAPI · 17 papers · 89 interventions
-```
-
-### How messages are classified
-
-Everything goes through one primitive. The receiver classifies by JSON content shape — no virtual port routing, no message broker.
-
-| Content | Classified as | Action |
-|---|---|---|
-| `samples` array | HealthKit envelope | Dedupe → DuckDB → Ack |
-| `sql` field | SQL query | Execute read-only → QueryResult |
-| `kind: "samples_added"` | ChangeEvent | Coach runs rule models |
-| `agent` / `command` | Pilot reply | G-Brain ingester |
-
----
-
-## The bigger idea
-
-Each agent is a fully independent unit — its own identity, its own G-Brain, its own container. To add a new one: get its Pilot node ID, share it with the others. Done. No schema migration, no coordinator.
-
-**G-Brains can communicate without a lot of shared priors.** They converge on meaning through message exchange. The more agents, the more data they pool, the sharper they reason. Distributed data, distributed compute, federated via Pilot Protocol.
-
----
-
 ## Running
 
 ```sh
-# Production — on GCP:
+# Production — GCP:
 cd ~/g-stack-hackathon/infra/docker && docker compose up -d
 docker logs g-stack-agent-b --follow
 
