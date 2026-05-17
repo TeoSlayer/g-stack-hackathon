@@ -47,6 +47,24 @@ def test_binary_envelope_decoded_to_envelope():
     assert classify_message(inner) == "envelope"
 
 
+def test_binary_envelope_raw_deflate():
+    """iOS HealthSync produces raw deflate (no zlib header) — wbits=-15."""
+    envelope = {
+        "v": 1, "source": "ios.healthsync", "device_id": "iPhone-iPhone",
+        "batch_id": "deflate-test", "sent_at": 1.0, "ack_port": 1002,
+        "samples": [], "workouts": [],
+    }
+    body = json.dumps(envelope).encode("utf-8")
+    compressor = zlib.compressobj(wbits=-15)  # raw deflate, no header
+    raw = compressor.compress(body) + compressor.flush()
+    wrapper = {
+        "from": "0:test", "type": "BINARY", "bytes": len(raw),
+        "data_b64": base64.b64encode(raw).decode("ascii"),
+    }
+    inner, _ = unwrap_pilot_transport(wrapper)
+    assert inner["batch_id"] == "deflate-test"
+
+
 def test_binary_envelope_uncompressed_fallback():
     # A BINARY message that's *not* zlib-compressed (just raw JSON in base64).
     envelope = {"source": "ios.healthsync", "batch_id": "bin-test-2",
