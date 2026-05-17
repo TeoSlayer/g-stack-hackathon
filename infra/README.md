@@ -1,272 +1,246 @@
 # infra
 
-Everything the two agents need to run that isn't agent code: OpenClaw
-configuration, Pilot trust bootstrap, DuckDB and G-Brain storage layout,
-Google OAuth credentials, health-intelligence server config, environment
-variables, runbook.
+Everything needed to deploy and operate the two agents: Docker Compose files,
+Dockerfiles, OpenClaw workspace configs, G-Brain setup scripts, secrets
+layout, and operational runbook.
 
-This directory is the operator's surface. If you're setting the system up on
-a fresh homelab box, start here.
+Deployed on GCP VM `hackathon-openclaw`. The two agent containers run
+side-by-side with their own Pilot daemon identities.
 
 ## What lives here
 
-| Concern | Owner |
+| Path | What it is |
 |---|---|
-| OpenClaw daemon config | `openclaw/gateway.toml` (template) |
-| Skill manifests (paths to `agent-a/`, `agent-b/`) | `openclaw/skills.toml` |
-| Pilot identity for the homelab node | `pilot/identity.json` — generated, never committed |
-| Pilot trust list (iOS device IDs + agent identities) | `pilot/trust.json` |
-| Agent A health warehouse | `data/health.duckdb` (created on first ingest) |
-| Agent B GSuite warehouse | `data/gsuite.duckdb` (created on first GSuite pull) |
-| G-Brain PGLite database (shared) | `data/gbrain.db` (created by `setup-gbrain`) |
-| Google OAuth credentials | `.env` (gitignored) — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` |
-| ZeroEntropy API key | `.env` — `ZEROENTROPY_API_KEY` |
-| systemd / launchd unit files | `services/` |
-| Backup script | `scripts/backup.sh` |
-| Health-check script | `scripts/healthcheck.sh` |
+| `docker/docker-compose.yml` | Defines `g-stack-agent-a` and `g-stack-agent-b` containers |
+| `docker/Dockerfile.agent-a` | Collector image: Python 3.13 + Pilot binaries + agent-a package |
+| `docker/Dockerfile.agent-b` | Coach image: Python 3.13 + Pilot binaries + agent-b package |
+| `docker/entrypoint-agent-a.sh` | Starts Pilot daemon, waits for socket, launches `python -m collector.server` |
+| `docker/entrypoint-agent-b.sh` | Starts Pilot daemon, waits for socket, launches `python -m coach watch` |
+| `docker/pilot-bin/` | Pre-built Linux Pilot daemon + pilotctl binaries for the container images |
+| `secrets/` | Bind-mounted into agent-b at `/run/secrets` — Google OAuth tokens, API keys (gitignored) |
+| `data/gbrain-collector-home/` | Collector's G-Brain PGLite database |
+| `data/gbrain-coach-home/` | Coach's G-Brain PGLite database |
+| `bin/gbrain-collector` | Wrapper script: sets HOME to gbrain-collector-home before calling gbrain CLI |
+| `bin/gbrain-coach` | Wrapper script: sets HOME to gbrain-coach-home before calling gbrain CLI |
+| `.env.example` | Template — copy to `~/.env` on the VM and fill in credentials |
 
-## First-time setup
+## Container topology
 
-These are the **six steps** that turn a fresh homelab box into a working
-substrate. Do them once, in order.
+```
+hackathon-openclaw (GCP VM)
+├── g-stack-agent-a          (port 4001/udp — Pilot daemon UDP endpoint)
+│   ├── Pilot daemon  →  Collector node
+│   ├── python -m collector.server
+│   └── Docker volumes:
+│       ├── docker_agent_a_data  → /var/collector_data  (facts.duckdb)
+│       ├── docker_agent_a_pilot → /root/.pilot         (Pilot identity + inbox)
+│       └── docker_agent_a_inbox → /var/collector_inbox (e2e test drop dir)
+│
+└── g-stack-agent-b          (port 4002/udp — Pilot daemon UDP endpoint)
+    ├── Pilot daemon  →  Coach node
+    ├── python -m coach watch
+    └── Docker volumes:
+        ├── docker_agent_b_pilot → /root/.pilot         (Pilot identity + inbox)
+        ├── infra/secrets        → /run/secrets         (Google OAuth tokens)
+        └── ~/brain              → /root/brain           (calendar markdown files)
+```
 
-### 1. Install prerequisites
+Each container has its own Pilot daemon with a distinct identity. They
+communicate via `pilotctl send-message` over the public Pilot overlay —
+not via shared volumes or localhost networking.
+
+## First-time setup on a fresh GCP VM
+
+### 1. Clone the repo
 
 ```sh
-# macOS homelab box
-brew install duckdb node@22
-npm install -g openclaw@latest pnpm
+git clone https://github.com/TeoSlayer/g-stack-hackathon ~/g-stack-hackathon
+cd ~/g-stack-hackathon
 ```
 
-OpenClaw needs Node ≥22. DuckDB CLI is optional but useful for inspecting
-the warehouse directly.
-
-### 2. Bootstrap OpenClaw
+### 2. Install prerequisites
 
 ```sh
-openclaw onboard --install-daemon
+# Docker + Docker Compose
+curl -fsSL https://get.docker.com | sh
+
+# OpenClaw (for Telegram channel + workspace orchestration)
+# Follow install instructions from openclaw.dev
+
+# G-Brain CLI
+npm install -g @garrytan/gbrain  # or follow gbrain install docs
+
+# Python venv for health-intelligence
+python3 -m venv .venv && .venv/bin/pip install -r health-intelligence/requirements.txt
 ```
 
-The wizard creates `~/.openclaw/openclaw.json`, installs the launchd /
-systemd user service, asks for an LLM provider (pick anything; the
-architecture doesn't care), and leaves the Gateway running.
+### 3. Set up secrets
 
-Verify:
+Copy `.env.example` to `~/.env` and fill in:
 
 ```sh
-openclaw doctor
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REFRESH_TOKEN=...   # from calendar_sync.py --auth-only
+ZEROENTROPY_API_KEY=...
+TELEGRAM_BOT_TOKEN=...
 ```
 
-### 3. Configure Google OAuth for Agent B
-
-Agent B pulls Calendar, Drive, and Gmail via OAuth 2.0. You need a refresh
-token with the appropriate scopes.
-
-1. Create a project in [Google Cloud Console](https://console.cloud.google.com).
-2. Enable APIs: Google Calendar, Google Drive, Gmail.
-3. Create an OAuth 2.0 Client ID (Desktop app type).
-4. Run the one-time consent flow to get a refresh token:
-
-   ```sh
-   python agent-b/coach/calendar_sync.py \
-     --client-id $GOOGLE_CLIENT_ID \
-     --client-secret $GOOGLE_CLIENT_SECRET \
-     --auth-only
-   ```
-
-5. Add credentials to `infra/.env`:
-
-   ```sh
-   GOOGLE_CLIENT_ID=...
-   GOOGLE_CLIENT_SECRET=...
-   GOOGLE_REFRESH_TOKEN=...
-   ```
-
-### 3b. Configure ZeroEntropy for health-intelligence reranking
+Create `infra/secrets/` (bind-mounted into agent-b):
 
 ```sh
-# Add to infra/.env
-ZEROENTROPY_API_KEY=ze-...
+mkdir -p infra/secrets
+cp ~/.env infra/secrets/.env
 ```
 
-health-intelligence reads this at startup. If absent, the server falls back
-to raw retrieval scores (no reranking).
-
-### 4. Initialize gbrain
+### 4. Initialize G-Brain instances
 
 ```sh
-# from this directory:
-gstack setup-gbrain --backend pglite --data-dir ./data/gbrain
+mkdir -p infra/data/gbrain-collector-home infra/data/gbrain-coach-home
+HOME=~/g-stack-hackathon/infra/data/gbrain-collector-home gbrain init
+HOME=~/g-stack-hackathon/infra/data/gbrain-coach-home    gbrain init
 ```
 
-`setup-gbrain` (a gstack skill) installs the gbrain CLI, creates a local
-PGLite database, registers the MCP endpoint, and writes the trust policy.
-When it finishes, gbrain is reachable as an MCP tool to any agent on this
-machine.
-
-### 5. Bootstrap the Pilot identity for this box
-
-The homelab box becomes a Pilot node so the iOS app can address it. Each
-agent (A and B) ride this single identity — they're skills, not separate
-nodes.
+### 5. Configure OpenClaw and wire Telegram
 
 ```sh
-mkdir -p pilot
-pilot-daemon init --data-dir ./pilot
-pilot-daemon start --data-dir ./pilot &
-pilotctl info  # prints node_id and virtual addr
+openclaw configure   # set gateway mode, LLM provider
+openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"
+openclaw agents bind --agent coach --bind telegram
 ```
 
-Note the `node_id` and `addr` — the iOS app needs both. Drop them into
-`infra/.env`:
+### 6. Build and start containers
 
 ```sh
-HOMELAB_PILOT_ID=161006
-HOMELAB_PILOT_ADDR=0:0000.0002.74EE
+cd infra/docker
+docker compose up --build -d
+docker compose logs -f
 ```
 
-### 6. Register the iOS device as a trusted peer
+### 7. Register Pilot peers (first run only)
 
-First time the iOS HealthSync app launches with Pilot embedded, it requests
-a handshake. On the homelab box, approve it:
+Each container generates a fresh Pilot identity on first start. Approve
+the iOS device trust request when the HealthSync app first connects:
 
 ```sh
-pilotctl pending           # see the request
-pilotctl approve <node_id> # accept it
-pilotctl trust             # confirm it's listed
+# Inside agent-a container:
+docker exec g-stack-agent-a /opt/pilot/bin/pilotctl pending
+docker exec g-stack-agent-a /opt/pilot/bin/pilotctl approve <node_id>
 ```
 
-After this, the iOS app can send envelopes to the homelab without further
-ceremony. The trust is persistent across iOS reinstalls *unless* the bundle
-id changes (which generates a fresh identity).
-
-For convenience you can flip auto-approve on in `pilot/config.toml`:
-
-```toml
-trust_auto_approve = true
-```
-
-…but only if you understand the threat model.
-
-### 7. Install the agent skills
+### 8. Run Google Calendar OAuth consent (once)
 
 ```sh
-openclaw skill install ../agent-a
-openclaw skill install ../agent-b
-openclaw skill enable agent-a
-openclaw skill enable agent-b
+python agent-b/coach/calendar_sync.py \
+  --client-id "$GOOGLE_CLIENT_ID" \
+  --client-secret "$GOOGLE_CLIENT_SECRET" \
+  --auth-only
+# Saves refresh token to secrets — copy to infra/secrets/
 ```
 
-OpenClaw daemon reloads. From this point:
-
-- Agent A is listening on Pilot port 1001 (health ingest), 1003 (query API), 1004 (change events)
-- Agent B is running the GSuite pull loop and subscribing to Agent A on port 1004
-
-### 8. Start health-intelligence server
+### 9. Seed G-Brain with calendar data
 
 ```sh
-cd ../health-intelligence
-.venv/bin/python server.py &   # http://127.0.0.1:8741
+bash ~/g-stack-hackathon/seed_vm.sh
 ```
 
-Or install as a launchd/systemd unit from `services/`.
+### 10. Start health-intelligence server
+
+```sh
+cd ~/g-stack-hackathon
+nohup .venv/bin/python health-intelligence/server.py > /tmp/hi.log 2>&1 &
+curl http://127.0.0.1:8741/health
+```
 
 ## Operational tasks
 
-### Backup
+### Redeploy after a code change
 
 ```sh
-./scripts/backup.sh /external/backup/healthsync
+cd ~/g-stack-hackathon && git pull
+cd infra/docker
+docker compose up --build -d
 ```
 
-What it does: pause Agent A, `COPY` DuckDB to Parquet, snapshot gbrain
-PGLite, tar Pilot identity + trust list, resume Agent A. Atomic against
-ongoing ingest.
+Volumes persist across rebuilds — Pilot identities, DuckDB, G-Brain data
+are not lost.
+
+### Query the Collector warehouse
+
+```sh
+docker exec g-stack-agent-b python -m coach query \
+  "SELECT type, COUNT(*) FROM samples GROUP BY type"
+
+docker exec g-stack-agent-b python -m coach readiness
+```
+
+### Check G-Brain content
+
+```sh
+infra/bin/gbrain-collector list --tag calendar -n 5
+infra/bin/gbrain-coach     list -n 10
+```
 
 ### Health check
 
 ```sh
-./scripts/healthcheck.sh
+docker ps                                          # both containers running
+docker logs g-stack-agent-a --tail 20             # recent envelope + query log
+docker logs g-stack-agent-b --tail 20             # recent ChangeEvent + Telegram log
+curl http://127.0.0.1:8741/health                 # health-intelligence up
+docker exec g-stack-agent-a /opt/pilot/bin/pilotctl peers  # Pilot connectivity
 ```
-
-Verifies:
-
-- OpenClaw daemon responding (`openclaw doctor`)
-- Both agent skills running (`openclaw skill list`)
-- Agent A DuckDB readable + sample count moved in the last hour
-- Agent B DuckDB readable + GSuite sync timestamp recent
-- G-Brain MCP endpoint reachable
-- Pilot daemon up + iOS device in trusted peers
-- health-intelligence server at port 8741 returning `{"status":"ok"}`
-
-Exit code `0` if green, non-zero with the failing component named.
-
-### Restart everything
-
-```sh
-launchctl kickstart -k gui/$(id -u)/com.openclaw.gateway
-```
-
-Skills come back with their state intact. Pilot identity is persistent on
-disk; trust list is persistent; DuckDB is persistent; gbrain is persistent.
-No data loss across a full restart.
 
 ### Rotate Google OAuth credentials
 
-Run the consent flow again with `python agent-b/coach/calendar_sync.py --auth-only`, update
-`GOOGLE_REFRESH_TOKEN` in `.env`, then restart Agent B: `openclaw skill restart agent-b`.
+Run `calendar_sync.py --auth-only` again, update `infra/secrets/.env`,
+then restart agent-b: `docker compose restart agent-b`.
 
-## Directory layout (when populated)
+## Directory layout
 
 ```
 infra/
 ├── README.md                       this file
-├── .env.example                    template; copy to .env and fill in
-├── openclaw/
-│   ├── gateway.toml                OpenClaw gateway config
-│   └── skills.toml                 skill registry pointers
-├── pilot/
-│   ├── identity.json               generated, NEVER commit
-│   ├── trust.json                  peer trust list (iOS + agent identities)
-│   └── config.toml                 auto-approve, keepalive, etc.
+├── .env.example                    template — fill in and copy to ~/  
+├── docker/
+│   ├── docker-compose.yml          two-container deployment
+│   ├── Dockerfile.agent-a          Collector image
+│   ├── Dockerfile.agent-b          Coach image
+│   ├── entrypoint-agent-a.sh       Pilot daemon + collector.server
+│   ├── entrypoint-agent-b.sh       Pilot daemon + coach watch
+│   └── pilot-bin/                  Linux pilot-daemon + pilotctl binaries
+├── secrets/                        gitignored — bind-mounted into agent-b
+│   └── .env                        Google OAuth, ZeroEntropy, Telegram tokens
 ├── data/
-│   ├── health.duckdb               Agent A's health warehouse
-│   ├── gsuite.duckdb               Agent B's GSuite warehouse
-│   └── gbrain/                     G-Brain PGLite directory (shared)
-├── services/
-│   ├── com.openclaw.gateway.plist  launchd unit — OpenClaw daemon (macOS)
-│   ├── openclaw.service            systemd unit (Linux)
-│   └── health-intelligence.plist   launchd unit — FastAPI server (macOS)
-└── scripts/
-    ├── backup.sh
-    ├── healthcheck.sh
-    └── restore.sh
+│   ├── gbrain-collector-home/      Collector's G-Brain PGLite database
+│   └── gbrain-coach-home/          Coach's G-Brain PGLite database
+└── bin/
+    ├── gbrain-collector            wrapper: HOME=gbrain-collector-home gbrain
+    └── gbrain-coach                wrapper: HOME=gbrain-coach-home gbrain
 ```
 
-## Status
+Note: `facts.duckdb` lives in Docker volume `docker_agent_a_data`, not in
+this directory. Access it via `docker exec g-stack-agent-b python -m coach query`.
 
-Spec complete — templates and scripts materialise as agents are deployed.
-Agent A core is built (84 tests passing); Agent B framework is built (GSuite
-pull pending); health-intelligence server is running. The infra layer wires
-them together for production.
+## Threat model
 
-## Threat model in one paragraph
+The GCP VM is the trusted root. The iOS device is trusted via Pilot identity
+(Ed25519, persistent on device). External surfaces:
 
-The homelab box is the trusted root. Anything that lands on its disk is
-considered yours. The iOS device is trusted via Pilot identity (Ed25519,
-persistent on the device). External services touched: Google (OAuth pull —
-sees metadata, not raw health data), ZeroEntropy (sees intervention query
-text for reranking), and whichever LLM is used for synthesis (sees prompt
-summaries). Everything else — DuckDB, G-Brain, the Pilot overlay — is local.
-Any of the three external services can be swapped out; the architecture
-doesn't bind to them.
+- **Google OAuth** — sees Calendar/Drive/Gmail metadata, not raw health data
+- **ZeroEntropy** — sees intervention query text for reranking
+- **Telegram** — sees the Coach's replies (health summaries, nudges)
+- **LLM provider via OpenClaw** — sees the Coach's reasoning context
+
+DuckDB, G-Brain, and Pilot identities are local to the VM.
+Any external service can be swapped; the architecture doesn't bind to them.
 
 ## See also
 
 - [`../README.md`](../README.md) — overall architecture and data flow
+- [`../agent-a`](../agent-a) — Collector (health ingest)
+- [`../agent-b`](../agent-b) — Coach (Telegram interface + rule models)
+- [`../health-intelligence`](../health-intelligence) — RAG retrieval server
 - [`../health-sync`](../health-sync) — iOS app (HealthKit + 27 on-device models)
-- [`../pilot-swift`](../pilot-swift) — Swift Pilot SDK embedded in the iOS app
-- [`../agent-a`](../agent-a) — Health ingest agent (built)
-- [`../agent-b`](../agent-b) — GSuite ingest agent (framework built)
-- [`../health-intelligence`](../health-intelligence) — RAG + ZeroEntropy retrieval server
-- [`../gstack-ios`](../gstack-ios) — iOS dev skill pack (used to build health-sync)
+- [`../pilot-swift`](../pilot-swift) — Swift Pilot SDK embedded in iOS app
+- [`../gstack-ios`](../gstack-ios) — iOS dev skill pack

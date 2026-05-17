@@ -795,16 +795,17 @@
   <div class="hero-bg"></div>
   <div class="hero-badge"><span></span> Personal Data Substrate</div>
   <h1><span class="grad">g-stack</span></h1>
-  <p class="hero-sub">Two ingestion agents backed by G-Brain memory, a health-intelligence retrieval layer, and Pilot Protocol as the communication shim — connecting phone, agents, and retrieval with zero extra infrastructure.</p>
+  <p class="hero-sub">Two OpenClaw agents — each with its own G-Brain and data substrate — connected by Pilot Protocol. Talk to the Coach on Telegram. The Collector warehouses health data silently. Add another agent? Just share its Pilot node ID.</p>
   <div class="hero-pills">
     <span class="pill">iPhone + Apple Watch</span>
     <span class="pill">Pilot Protocol</span>
     <span class="pill">27 on-device models</span>
     <span class="pill">DuckDB warehousing</span>
-    <span class="pill">G-Brain memory</span>
+    <span class="pill">2× G-Brain instances</span>
     <span class="pill">FastAPI RAG server</span>
     <span class="pill">17 peer-reviewed papers</span>
-    <span class="pill">Google Workspace</span>
+    <span class="pill">Telegram interface</span>
+    <span class="pill">OpenClaw agents</span>
   </div>
   <div class="hero-scroll">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -824,18 +825,18 @@
     <div class="principles-grid">
       <div class="principle-card pc-blue fade-up">
         <div class="principle-num">01</div>
-        <h3>Two agents, one memory model</h3>
-        <p>Agent A warehouses health data from iPhone via Pilot. Agent B warehouses Google Workspace data via OAuth. Both share G-Brain for long-term semantic memory. Neither runs an LLM — they are durable ingest workers, not reasoning engines.</p>
+        <h3>One G-Brain per agent, per use case</h3>
+        <p>Each agent owns its data. The Collector's G-Brain holds factual observations — what HealthKit reported, when, raw counts. The Coach's G-Brain holds interpretations — what it noticed, what it told the user, follow-up hypotheses. Neither agent can corrupt the other's record. To add a third agent, share its Pilot node ID — no shared infrastructure required.</p>
       </div>
       <div class="principle-card pc-purple fade-up">
         <div class="principle-num">02</div>
-        <h3>Pilot is the data shim</h3>
-        <p>The iOS app embeds the Pilot daemon and pushes HealthKit envelopes directly to Agent A over an encrypted, NAT-traversed tunnel. No port forwarding, no VPN, no shared HTTP endpoint. The same overlay carries agent-to-agent messages.</p>
+        <h3>Pilot is the only transport primitive</h3>
+        <p>All inter-node communication is one thing: <code>pilotctl send-message &lt;target&gt; --data &lt;json&gt;</code>. The Pilot daemon delivers the JSON to the target's inbox. The receiver classifies by content shape — no virtual port routing at the application level. E2E encrypted, NAT-traversed, no port forwarding needed.</p>
       </div>
       <div class="principle-card pc-green fade-up">
         <div class="principle-num">03</div>
         <h3>Health intelligence is retrieval, not a chatbot</h3>
-        <p>A FastAPI server backed by 17 systematic reviews and meta-analyses returns ranked, citable intervention recommendations given alert values or a free-text query. Results are ranked by cosine similarity with ZeroEntropy reranking planned.</p>
+        <p>A FastAPI server backed by 17 systematic reviews and meta-analyses returns ranked, citable intervention recommendations given alert values or a free-text query. Results are ranked by cosine similarity with ZeroEntropy reranking planned. Registered as an OpenClaw skill in both agent workspaces.</p>
       </div>
       <div class="principle-card pc-amber fade-up">
         <div class="principle-num">04</div>
@@ -844,8 +845,8 @@
       </div>
       <div class="principle-card pc-red fade-up">
         <div class="principle-num">05</div>
-        <h3>Data never leaves hardware you control</h3>
-        <p>iPhone collects, Pilot transports, agents warehouse. G-Brain and DuckDB are local files. The only external surfaces are Google OAuth, ZeroEntropy reranking, and whichever LLM is used for synthesis.</p>
+        <h3>Distributed data, distributed compute</h3>
+        <p>Each agent is an independent unit — its own OpenClaw workspace, its own Pilot identity, its own G-Brain, its own Docker container. They coordinate only via <code>send-message</code>. Scaling means adding a new container and registering its node ID. No shared database, no central coordinator.</p>
       </div>
     </div>
   </div>
@@ -861,7 +862,7 @@
     <div class="arch-diagram fade-up">
       <!-- Pilot overlay wrapper label -->
       <div style="text-align:center; margin-bottom: 32px;">
-        <span style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.12em; color:var(--accent); border:1px solid rgba(59,130,246,0.3); padding:4px 16px; border-radius:999px;">Pilot Overlay Network — encrypted · NAT-traversed · identity-verified</span>
+        <span style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.12em; color:var(--accent); border:1px solid rgba(59,130,246,0.3); padding:4px 16px; border-radius:999px;">GCP: hackathon-openclaw — Docker Compose · OpenClaw · Pilot overlay</span>
       </div>
 
       <!-- Row 1: data sources -->
@@ -869,7 +870,7 @@
         <div class="arch-node blue" style="max-width:280px;">
           <div class="arch-node-label">Data Source</div>
           <div class="arch-node-title">📱 iPhone + Apple Watch</div>
-          <div class="arch-node-desc">HealthKit anchored queries · 27 on-device models · Readiness score · PilotSyncTransport embedded</div>
+          <div class="arch-node-desc">HealthKit anchored queries · 27 on-device models · Readiness score · pilot-swift embedded daemon</div>
         </div>
         <div style="flex:1; display:flex; align-items:center; justify-content:center;">
           <div style="text-align:center; color:var(--muted); font-size:0.75rem;">
@@ -878,8 +879,8 @@
         </div>
         <div class="arch-node green" style="max-width:280px;">
           <div class="arch-node-label">Data Source</div>
-          <div class="arch-node-title">☁️ Google Workspace</div>
-          <div class="arch-node-desc">Calendar · Drive · Gmail · OAuth 2.0 incremental sync with nextSyncToken</div>
+          <div class="arch-node-title">☁️ Google Calendar</div>
+          <div class="arch-node-desc">OAuth 2.0 incremental sync · nextSyncToken · daily markdown → Coach's G-Brain</div>
         </div>
       </div>
 
@@ -888,7 +889,7 @@
         <div style="flex:1; max-width:280px; display:flex; justify-content:center;">
           <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding: 8px 0;">
             <div style="width:2px; height:24px; background:linear-gradient(to bottom, var(--accent), rgba(59,130,246,0.3));"></div>
-            <span style="font-size:0.65rem; color:var(--accent); background:var(--surface2); padding:2px 8px; border-radius:4px; border:1px solid rgba(59,130,246,0.3); white-space:nowrap;">Pilot port 1001 · E2E encrypted</span>
+            <span style="font-size:0.65rem; color:var(--accent); background:var(--surface2); padding:2px 8px; border-radius:4px; border:1px solid rgba(59,130,246,0.3); white-space:nowrap;">pilotctl send-message · E2E encrypted</span>
             <div style="width:2px; height:24px; background:linear-gradient(to bottom, rgba(59,130,246,0.3), transparent);"></div>
           </div>
         </div>
@@ -896,7 +897,7 @@
         <div style="flex:1; max-width:280px; display:flex; justify-content:center;">
           <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding: 8px 0;">
             <div style="width:2px; height:24px; background:linear-gradient(to bottom, var(--accent3), rgba(16,185,129,0.3));"></div>
-            <span style="font-size:0.65rem; color:var(--accent3); background:var(--surface2); padding:2px 8px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); white-space:nowrap;">OAuth pull · incremental</span>
+            <span style="font-size:0.65rem; color:var(--accent3); background:var(--surface2); padding:2px 8px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); white-space:nowrap;">calendar_sync.py · OAuth pull</span>
             <div style="width:2px; height:24px; background:linear-gradient(to bottom, rgba(16,185,129,0.3), transparent);"></div>
           </div>
         </div>
@@ -905,13 +906,13 @@
       <!-- Row 2: agents -->
       <div class="arch-row" style="margin-bottom:0;">
         <div class="arch-node blue">
-          <div class="arch-node-label">Agent A</div>
-          <div class="arch-node-title">🏥 Health Ingest</div>
-          <div class="arch-node-desc">Dedupes by sample UUID · DuckDB warehouse · SQL query gate · ChangeEvent broadcaster · 84 tests passing</div>
+          <div class="arch-node-label">g-stack-agent-a · OpenClaw</div>
+          <div class="arch-node-title">📥 Collector</div>
+          <div class="arch-node-desc">Classifies Pilot inbox by content shape · dedupes by UUID · facts.duckdb · sends ChangeEvents · answers SQL queries · G-Brain: gbrain-collector-home · 84 tests passing</div>
           <div style="margin-top:10px; font-size:0.7rem; color:var(--accent); display:flex; gap:8px; flex-wrap:wrap;">
-            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">port 1001 ingest</span>
-            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">port 1003 SQL</span>
-            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">port 1004 events</span>
+            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">Python daemon</span>
+            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">DuckDB</span>
+            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">Pilot inbox</span>
           </div>
         </div>
 
@@ -919,37 +920,37 @@
         <div style="display:flex; align-items:center; padding: 0 8px; min-width:100px;">
           <div style="flex:1; height:2px; background:linear-gradient(90deg, var(--accent), var(--accent2));"></div>
           <div style="padding:0 8px; text-align:center;">
-            <div style="font-size:0.62rem; color:var(--accent2); background:var(--surface2); padding:3px 8px; border-radius:4px; border:1px solid rgba(139,92,246,0.3); white-space:nowrap;">Pilot 1003↔ 1004↑</div>
+            <div style="font-size:0.62rem; color:var(--accent2); background:var(--surface2); padding:3px 8px; border-radius:4px; border:1px solid rgba(139,92,246,0.3); white-space:nowrap;">send-message both ways</div>
           </div>
           <div style="flex:1; height:2px; background:linear-gradient(90deg, var(--accent2), var(--accent3));"></div>
         </div>
 
         <div class="arch-node green">
-          <div class="arch-node-label">Agent B</div>
-          <div class="arch-node-title">📅 GSuite Ingest</div>
-          <div class="arch-node-desc">Calendar · Drive · Gmail pull · DuckDB warehouse · G-Brain rollup · Subscribes to Agent A change events</div>
+          <div class="arch-node-label">g-stack-agent-b · OpenClaw</div>
+          <div class="arch-node-title">🧭 Coach</div>
+          <div class="arch-node-desc">Watches ChangeEvents · runs 7 rule models · writes insights to G-Brain · answers on Telegram · calendar context in gbrain-coach-home · health-intelligence skill</div>
           <div style="margin-top:10px; font-size:0.7rem; color:var(--accent3); display:flex; gap:8px; flex-wrap:wrap;">
-            <span style="background:rgba(16,185,129,0.1);padding:2px 6px;border-radius:4px;">OAuth 2.0</span>
-            <span style="background:rgba(16,185,129,0.1);padding:2px 6px;border-radius:4px;">DuckDB</span>
+            <span style="background:rgba(16,185,129,0.1);padding:2px 6px;border-radius:4px;">LLM agent</span>
+            <span style="background:rgba(16,185,129,0.1);padding:2px 6px;border-radius:4px;">Telegram</span>
           </div>
         </div>
       </div>
 
-      <!-- G-Brain shared connector -->
+      <!-- G-Brain two instances connector -->
       <div style="display:flex; justify-content:center; padding: 12px 0;">
         <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
           <div style="width:2px; height:20px; background:linear-gradient(to bottom, var(--accent2), rgba(139,92,246,0.5));"></div>
-          <span style="font-size:0.65rem; color:var(--accent2); background:var(--surface2); padding:2px 12px; border-radius:4px; border:1px solid rgba(139,92,246,0.3);">shared G-Brain writes · daily markdown summaries</span>
+          <span style="font-size:0.65rem; color:var(--accent2); background:var(--surface2); padding:2px 12px; border-radius:4px; border:1px solid rgba(139,92,246,0.3);">two separate G-Brain instances · cross-source context via calendar import</span>
           <div style="width:2px; height:20px; background:linear-gradient(to bottom, rgba(139,92,246,0.5), var(--accent2));"></div>
         </div>
       </div>
 
-      <!-- G-Brain shared node -->
+      <!-- G-Brain two instances node -->
       <div class="arch-row center">
-        <div class="arch-node purple" style="max-width:400px; text-align:center;">
-          <div class="arch-node-label">Shared Memory</div>
+        <div class="arch-node purple" style="max-width:500px; text-align:center;">
+          <div class="arch-node-label">Separate Memories</div>
           <div class="arch-node-title">🧠 G-Brain (PGLite)</div>
-          <div class="arch-node-desc">Daily markdown summaries from both agents. Cross-source reasoning: "HRV dropped on weeks with 14 calendar events" — a semantic query, not a join.</div>
+          <div class="arch-node-desc"><strong>gbrain-collector-home</strong>: factual observations, calendar context imported by seed_vm.sh<br><strong>gbrain-coach-home</strong>: interpretations, prior nudges, coaching history<br>Cross-source reasoning — "HRV dropped on weeks with dense calendars" — is a G-Brain semantic query.</div>
         </div>
       </div>
 
@@ -957,7 +958,7 @@
       <div style="display:flex; justify-content:center; padding: 12px 0;">
         <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
           <div style="width:2px; height:20px; background:linear-gradient(to bottom, var(--accent), rgba(59,130,246,0.5));"></div>
-          <span style="font-size:0.65rem; color:var(--accent); background:var(--surface2); padding:2px 12px; border-radius:4px; border:1px solid rgba(59,130,246,0.3);">SQL queries · alert values</span>
+          <span style="font-size:0.65rem; color:var(--accent); background:var(--surface2); padding:2px 12px; border-radius:4px; border:1px solid rgba(59,130,246,0.3);">HTTP 127.0.0.1:8741/retrieve · both agents call as skill</span>
           <div style="width:2px; height:20px; background:linear-gradient(to bottom, rgba(59,130,246,0.5), transparent);"></div>
         </div>
       </div>
@@ -965,9 +966,9 @@
       <!-- health intelligence -->
       <div class="arch-row center">
         <div class="arch-node amber" style="max-width:500px; text-align:center;">
-          <div class="arch-node-label">Retrieval Layer</div>
+          <div class="arch-node-label">OpenClaw Skill · Both Agents</div>
           <div class="arch-node-title">📚 health-intelligence</div>
-          <div class="arch-node-desc">FastAPI · 17 peer-reviewed papers · 89 interventions · alert-match + semantic retrieval · cosine similarity ranking · ZeroEntropy reranking planned · Port 8741</div>
+          <div class="arch-node-desc">FastAPI sidecar · 17 peer-reviewed papers · 89 interventions · alert-match (exact, &lt;5ms) + semantic retrieval (cosine similarity, ~50ms) · ZeroEntropy reranking integration in progress</div>
         </div>
       </div>
     </div>
@@ -999,43 +1000,50 @@
       <div class="flow-step fade-up">
         <div class="flow-step-num">3</div>
         <div class="flow-step-content">
-          <div class="flow-step-title">PilotSyncTransport sends to Agent A on port 1001</div>
-          <div class="flow-step-desc">End-to-end encrypted tunnel. NAT-traversed — no homelab port forwarding needed. Pilot handles identity (Ed25519), delivery confirmation, and reconnect. <code>isLikelyAvailable()</code> gates the send.</div>
+          <div class="flow-step-title">PilotSyncTransport calls <code>pilotctl send-message</code> → Collector node</div>
+          <div class="flow-step-desc">End-to-end encrypted tunnel. NAT-traversed — no port forwarding needed. Pilot handles identity (Ed25519), delivery confirmation, and reconnect. The envelope lands as a JSON file in the Collector's <code>~/.pilot/inbox/</code>. <code>isLikelyAvailable()</code> gates the send on-device.</div>
         </div>
       </div>
       <div class="flow-step fade-up">
         <div class="flow-step-num">4</div>
         <div class="flow-step-content">
-          <div class="flow-step-title">Agent A dedupes by UUID, writes to DuckDB, acks back</div>
-          <div class="flow-step-desc"><code>INSERT OR IGNORE</code> on sample UUID is the deduplication primitive. DuckDB gives single-writer durability with MVCC reads. Accepted, duplicate, and rejected UUIDs returned in the Ack.</div>
+          <div class="flow-step-title">Collector dedupes by UUID, writes to DuckDB, acks back</div>
+          <div class="flow-step-desc"><code>inbox_watcher.py</code> classifies the JSON by content shape — a message with a <code>samples</code> array goes to the ingest path. <code>INSERT OR IGNORE</code> on sample UUID deduplicates. DuckDB gives single-writer durability with MVCC reads. Ack JSON (accepted/duplicate/rejected UUIDs) sent back to iPhone via <code>send-message</code>.</div>
         </div>
       </div>
       <div class="flow-step fade-up">
         <div class="flow-step-num">5</div>
         <div class="flow-step-content">
-          <div class="flow-step-title">iOS advances HK anchor only after ack received</div>
-          <div class="flow-step-desc">The HealthKit anchor is a write barrier. It only advances when Agent A has confirmed persistence. A crash or network failure causes the same samples to be re-sent — they are deduped on arrival.</div>
+          <div class="flow-step-title">iOS advances HK anchor only after Ack received</div>
+          <div class="flow-step-desc">The HealthKit anchor is a write barrier. It only advances when the Collector has confirmed persistence. A crash or network failure causes the same samples to re-send — they are deduped on arrival by UUID.</div>
         </div>
       </div>
       <div class="flow-step fade-up">
         <div class="flow-step-num">6</div>
         <div class="flow-step-content">
-          <div class="flow-step-title">Agent A emits ChangeEvent on port 1004</div>
-          <div class="flow-step-desc">After each batch commit, a <code>ChangeEvent</code> broadcast fires: <code>&#123;table, new_count, since_ts&#125;</code>. Any subscriber on the Pilot overlay can react to new health data without polling.</div>
+          <div class="flow-step-title">Collector sends ChangeEvent to Coach via <code>send-message</code></div>
+          <div class="flow-step-desc">After each batch commit, <code>change_event.py</code> fires: <code>&#123;kind:"samples_added", table, new_count, since_ts&#125;</code>. Delivered to the Coach's Pilot inbox as a file. No virtual port routing — the Coach classifies it by the <code>kind</code> field.</div>
         </div>
       </div>
       <div class="flow-step fade-up">
         <div class="flow-step-num">7</div>
         <div class="flow-step-content">
-          <div class="flow-step-title">Agent B subscribes; cross-source inference available</div>
-          <div class="flow-step-desc">Agent B subscribes to port 1004. On a health ChangeEvent, it can issue SQL queries back to Agent A on port 1003 — joining health samples against its own Google Calendar / Drive / Gmail warehouse for context-aware analysis.</div>
+          <div class="flow-step-title">Coach runs 7 rule models; sends SQL query to Collector</div>
+          <div class="flow-step-desc">On each ChangeEvent, the Coach sends a JSON message with a <code>sql</code> field to the Collector via <code>send-message</code>. The Collector's <code>sql_gate</code> executes read-only queries and sends a QueryResult back. The Coach correlates the reply by <code>request_id</code>.</div>
         </div>
       </div>
       <div class="flow-step fade-up">
         <div class="flow-step-num">8</div>
         <div class="flow-step-content">
-          <div class="flow-step-title">health-intelligence retrieves, ranks, returns to LLM</div>
-          <div class="flow-step-desc">Alert values trigger exact-match lookup in the interventions index. A free-text query runs cosine similarity over <code>all-MiniLM-L6-v2</code> 384-dim embeddings. Results include paper citations, score, and an LLM-ready prompt guardrailed to only cite indexed sources.</div>
+          <div class="flow-step-title">health-intelligence retrieves paper-backed interventions</div>
+          <div class="flow-step-desc">Alert values trigger exact-match lookup in the interventions index. A free-text query runs cosine similarity over <code>all-MiniLM-L6-v2</code> 384-dim embeddings. Results include paper citations, score, and an LLM-ready prompt guardrailed to only cite indexed sources. Registered as an OpenClaw skill in both agent workspaces.</div>
+        </div>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">9</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">Coach writes insight to G-Brain; sends Telegram nudge</div>
+          <div class="flow-step-desc">If a rule fires and cooldown has elapsed, the Coach writes an insight to its G-Brain (<code>gbrain-coach-home</code>) and sends a proactive nudge on Telegram via OpenClaw's channel binding. On-demand questions answered the same way — DuckDB + G-Brain recall + RAG evidence, ≤200 words, no pipe tables.</div>
         </div>
       </div>
     </div>
@@ -1084,29 +1092,29 @@
       <div class="component-card fade-up">
         <div class="component-header">
           <div class="component-icon" style="background:rgba(16,185,129,0.12);">🏥</div>
-          <h3>agent-a</h3>
-          <div class="sub">Health Ingest</div>
+          <h3>agent-a · Collector</h3>
+          <div class="sub">OpenClaw LLM Agent — Health Ingest</div>
         </div>
         <div class="component-body">
-          <p class="component-desc">Pilot listener on port 1001, DuckDB warehouse, SQL query gate on port 1003, ChangeEvent broadcaster on port 1004. UUID-based deduplication. PilotctlTransport fully implemented.</p>
-          <span class="component-status status-done"><span class="status-dot"></span>Core built · 84 tests passing</span>
+          <p class="component-desc">Receives HealthKit envelopes via Pilot inbox, deduplicates by UUID, writes to <code>facts.duckdb</code> in a Docker volume. Answers SQL queries from the Coach via content-based message classification. Emits ChangeEvents after each batch commit. Runs its own G-Brain instance (<code>gbrain-collector-home</code>) for factual memory.</p>
+          <span class="component-status status-done"><span class="status-dot"></span>Deployed on GCP · 84 tests passing</span>
           <div class="component-tags">
-            <span class="tag">Python</span><span class="tag">DuckDB</span><span class="tag">Pydantic</span><span class="tag">Pilot</span><span class="tag">pytest</span>
+            <span class="tag">Python</span><span class="tag">DuckDB</span><span class="tag">OpenClaw</span><span class="tag">Pydantic</span><span class="tag">Pilot</span><span class="tag">pytest</span>
           </div>
         </div>
       </div>
 
       <div class="component-card fade-up">
         <div class="component-header">
-          <div class="component-icon" style="background:rgba(245,158,11,0.12);">📅</div>
-          <h3>agent-b</h3>
-          <div class="sub">GSuite Ingest</div>
+          <div class="component-icon" style="background:rgba(245,158,11,0.12);">💬</div>
+          <h3>agent-b · Coach</h3>
+          <div class="sub">OpenClaw LLM Agent — Telegram Interface</div>
         </div>
         <div class="component-body">
-          <p class="component-desc">Pulls Calendar, Drive, Gmail via OAuth. Warehouses to DuckDB. G-Brain rollup. Speaks to Agent A via Pilot for cross-source reasoning. Calendar sync standalone and functional.</p>
-          <span class="component-status status-partial"><span class="status-dot"></span>Framework built · OAuth pull in progress</span>
+          <p class="component-desc">Monitors health warehouse via 7 rule models triggered by ChangeEvents. Sends SQL queries to the Collector via <code>send-message</code>. Answers on-demand health questions on Telegram (≤200 words, no pipe tables). Pulls Google Calendar via OAuth. Runs its own G-Brain instance (<code>gbrain-coach-home</code>) for interpretive memory.</p>
+          <span class="component-status status-done"><span class="status-dot"></span>Deployed on GCP · Calendar import working</span>
           <div class="component-tags">
-            <span class="tag">Python</span><span class="tag">Google OAuth</span><span class="tag">DuckDB</span><span class="tag">G-Brain</span>
+            <span class="tag">Python</span><span class="tag">Google OAuth</span><span class="tag">OpenClaw</span><span class="tag">G-Brain</span><span class="tag">Telegram</span>
           </div>
         </div>
       </div>
@@ -1145,13 +1153,13 @@
         <div class="component-header">
           <div class="component-icon" style="background:rgba(100,116,139,0.12);">⚙️</div>
           <h3>infra</h3>
-          <div class="sub">Operator Runbook</div>
+          <div class="sub">Docker Compose on GCP</div>
         </div>
         <div class="component-body">
-          <p class="component-desc">OpenClaw config, Pilot identity and trust, DuckDB and G-Brain storage layout, Google OAuth credentials, launchd/systemd units, backup and health-check scripts.</p>
-          <span class="component-status status-spec"><span class="status-dot"></span>Spec complete · materialises on first deploy</span>
+          <p class="component-desc">Docker Compose defines <code>g-stack-agent-a</code> and <code>g-stack-agent-b</code> containers on GCP VM <code>hackathon-openclaw</code>. Volumes hold Pilot identities, DuckDB, and G-Brain data across rebuilds. Bind mounts expose secrets and calendar markdown to the Coach.</p>
+          <span class="component-status status-done"><span class="status-dot"></span>Deployed and running on GCP</span>
           <div class="component-tags">
-            <span class="tag">OpenClaw</span><span class="tag">launchd</span><span class="tag">systemd</span><span class="tag">backup</span>
+            <span class="tag">Docker Compose</span><span class="tag">GCP</span><span class="tag">OpenClaw</span><span class="tag">Pilot</span><span class="tag">secrets</span>
           </div>
         </div>
       </div>
@@ -1160,50 +1168,46 @@
   </div>
 </section>
 
-<!-- PILOT PORTS -->
+<!-- MESSAGE CLASSIFICATION -->
 <section id="ports">
   <div class="container">
     <div class="section-label">Networking</div>
-    <h2 class="section-title">Pilot ports</h2>
-    <p class="section-desc">All inter-component communication uses Pilot — encrypted, NAT-traversed, no shared socket.</p>
+    <h2 class="section-title">One primitive, content-based routing</h2>
+    <p class="section-desc">Every message between nodes is delivered via <code>pilotctl send-message &lt;target-node-id&gt; --data '&lt;json&gt;'</code>. The daemon drops the JSON in the target's <code>~/.pilot/inbox/</code>. <code>inbox_watcher.py</code> classifies by content shape — not by port number.</p>
 
     <div class="ports-table-wrap fade-up">
       <table>
         <thead>
           <tr>
-            <th>Port</th>
-            <th>Direction</th>
-            <th>Message type</th>
-            <th>Between</th>
+            <th>Content shape</th>
+            <th>Classified as</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><span class="port-badge port-1001">1001</span></td>
-            <td><span class="dir-in">→ Agent A</span></td>
-            <td>HealthKit envelope (JSON)</td>
-            <td>iOS app → Agent A</td>
+            <td><code>samples</code> array present</td>
+            <td>HealthKit envelope</td>
+            <td>Dedupe → write DuckDB → send Ack back to iPhone</td>
           </tr>
           <tr>
-            <td><span class="port-badge port-1002">1002</span></td>
-            <td><span class="dir-out">← Agent A</span></td>
-            <td>Ack (accepted / duplicate / rejected UUIDs)</td>
-            <td>Agent A → iOS app</td>
+            <td><code>sql</code> field present</td>
+            <td>SQL query from Coach</td>
+            <td>sql_gate executes read-only → sends QueryResult back</td>
           </tr>
           <tr>
-            <td><span class="port-badge port-1003">1003</span></td>
-            <td><span class="dir-both">↔ Agent A</span></td>
-            <td>SQL query string + result set</td>
-            <td>Agent B / health-intelligence ↔ Agent A</td>
+            <td><code>kind: "samples_added"</code></td>
+            <td>ChangeEvent</td>
+            <td>Coach runs 7 rule models; may send proactive Telegram nudge</td>
           </tr>
           <tr>
-            <td><span class="port-badge port-1004">1004</span></td>
-            <td><span class="dir-out">← Agent A</span></td>
-            <td>ChangeEvent broadcast <code>&#123;table, new_count, since_ts&#125;</code></td>
-            <td>Agent A → Agent B (and any subscriber)</td>
+            <td><code>agent</code> / <code>command</code>, no <code>samples</code> / <code>sql</code></td>
+            <td>Pilot overlay reply</td>
+            <td>Passed to G-Brain ingester or heartbeat agent</td>
           </tr>
         </tbody>
       </table>
+      <p style="margin-top:16px; font-size:0.8rem; color:var(--dim);">Real Pilot built-in services: dataexchange port 1001 (used by <code>send-message</code>), echo port 7, handshake port 444. The <code>reply_port: 1005</code> tag in query bodies is a correlation metadata field — not a Pilot routing port.</p>
     </div>
   </div>
 </section>
@@ -1449,12 +1453,12 @@
       <div class="pilot-feature fade-up">
         <div class="pilot-feature-icon">🔐</div>
         <h4>End-to-end encrypted</h4>
-        <p>Ed25519 identity per node. The iPhone, the homelab, Agent A and B all have cryptographic identities. No shared secret, no bearer token.</p>
+        <p>Ed25519 identity per node. The iPhone, the Collector, and the Coach all have cryptographic identities. No shared secret, no bearer token.</p>
       </div>
       <div class="pilot-feature fade-up">
         <div class="pilot-feature-icon">🌐</div>
         <h4>NAT traversal built-in</h4>
-        <p>No port forwarding. No VPN configuration. No homelab firewall rules. Pilot handles NAT traversal transparently — the tunnel works from any network.</p>
+        <p>No port forwarding. No VPN configuration. No firewall rules between the iPhone and the GCP VM. Pilot handles NAT traversal transparently — the tunnel works from any network.</p>
       </div>
       <div class="pilot-feature fade-up">
         <div class="pilot-feature-icon">🔄</div>
@@ -1492,14 +1496,14 @@
         <div class="tech-logo" style="background:rgba(59,130,246,0.1);">🦆</div>
         <div>
           <div class="tech-name">DuckDB</div>
-          <div class="tech-role">Health + GSuite warehousing</div>
+          <div class="tech-role">Health sample warehouse (facts.duckdb)</div>
         </div>
       </div>
       <div class="tech-item">
         <div class="tech-logo" style="background:rgba(139,92,246,0.1);">🧠</div>
         <div>
           <div class="tech-name">G-Brain / PGLite</div>
-          <div class="tech-role">Shared semantic memory</div>
+          <div class="tech-role">Per-agent semantic memory (2 instances)</div>
         </div>
       </div>
       <div class="tech-item">
@@ -1581,16 +1585,16 @@
   <div class="container">
     <div class="section-label">Security</div>
     <h2 class="section-title">Data sovereignty</h2>
-    <p class="section-desc">The homelab box is the trusted root. Anything that lands on its disk is yours.</p>
+    <p class="section-desc">The GCP VM is the trusted root. Each agent controls its own data — DuckDB volume and G-Brain instance are not shared. External services never see raw health samples.</p>
 
     <div class="sovereignty-row fade-up">
       <div class="trust-chain">
-        <h3>Local data chain</h3>
+        <h3>Data chain</h3>
         <div class="trust-step">
           <div class="trust-step-icon" style="background:rgba(59,130,246,0.1);">📱</div>
           <div class="trust-step-text">
             <div class="trust-step-title">iPhone collects</div>
-            <div class="trust-step-desc">HealthKit samples stay on device until Pilot envelope is confirmed delivered to Agent A.</div>
+            <div class="trust-step-desc">HealthKit samples stay on device until Pilot envelope is confirmed delivered to the Collector.</div>
           </div>
         </div>
         <div class="trust-step">
@@ -1601,43 +1605,50 @@
           </div>
         </div>
         <div class="trust-step">
-          <div class="trust-step-icon" style="background:rgba(16,185,129,0.1);">🏠</div>
+          <div class="trust-step-icon" style="background:rgba(16,185,129,0.1);">☁️</div>
           <div class="trust-step-text">
-            <div class="trust-step-title">Agents warehouse locally</div>
-            <div class="trust-step-desc">DuckDB and G-Brain are files on the homelab. No cloud database, no managed service, no SaaS.</div>
+            <div class="trust-step-title">Collector warehouses in Docker volume</div>
+            <div class="trust-step-desc"><code>facts.duckdb</code> lives in Docker volume <code>docker_agent_a_data</code>. Persists across container rebuilds. No external database.</div>
           </div>
         </div>
         <div class="trust-step">
           <div class="trust-step-icon" style="background:rgba(245,158,11,0.1);">🧠</div>
           <div class="trust-step-text">
-            <div class="trust-step-title">G-Brain is local PGLite</div>
-            <div class="trust-step-desc">Semantic memory lives in a local PGLite database. No external vector store.</div>
+            <div class="trust-step-title">Two isolated G-Brain instances</div>
+            <div class="trust-step-desc">Each agent owns its own PGLite database — <code>gbrain-collector-home</code> for factual memory, <code>gbrain-coach-home</code> for interpretive memory. Neither can overwrite the other's record.</div>
           </div>
         </div>
       </div>
 
       <div class="external-surfaces">
         <h3>External surfaces</h3>
-        <p class="note">Three external services — all swappable. None see raw health data.</p>
+        <p class="note">Four external services — all swappable. None see raw health data.</p>
         <div class="external-item">
           <div class="icon">☁️</div>
           <div>
             <div class="external-item-title">Google OAuth</div>
-            <div class="external-item-desc">Sees Calendar / Drive / Gmail metadata. Not health data. Incremental pull only.</div>
+            <div class="external-item-desc">Coach sees Calendar / Drive / Gmail metadata. Not health data. Incremental pull, stored in G-Brain.</div>
+          </div>
+        </div>
+        <div class="external-item">
+          <div class="icon">💬</div>
+          <div>
+            <div class="external-item-title">Telegram</div>
+            <div class="external-item-desc">Sees the Coach's replies — health summaries and nudges. Bound via OpenClaw channel config.</div>
           </div>
         </div>
         <div class="external-item">
           <div class="icon">🔢</div>
           <div>
-            <div class="external-item-title">ZeroEntropy (planned)</div>
-            <div class="external-item-desc">Will see intervention query text for reranking. Not health samples. API key in infra/.env.</div>
+            <div class="external-item-title">ZeroEntropy (integration in progress)</div>
+            <div class="external-item-desc">Sees intervention query text for reranking. Not health samples. API key in <code>infra/secrets/.env</code>.</div>
           </div>
         </div>
         <div class="external-item">
           <div class="icon">🤖</div>
           <div>
-            <div class="external-item-title">LLM provider</div>
-            <div class="external-item-desc">Sees prompt summaries constructed from retrieved interventions. Provider is configurable.</div>
+            <div class="external-item-title">LLM provider via OpenClaw</div>
+            <div class="external-item-desc">Sees the Coach's reasoning context — not raw health samples. Provider is configurable in OpenClaw workspace.</div>
           </div>
         </div>
       </div>

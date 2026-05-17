@@ -1,164 +1,147 @@
-# agent-b — GSuite Ingest
+# agent-b — Coach
 
-Pulls data from Google Workspace (Calendar, Drive, Gmail) via OAuth, warehouses
-it to DuckDB, and keeps a G-Brain rollup in sync with Agent A's health data.
-Speaks to Agent A over Pilot Protocol for cross-source reasoning.
+OpenClaw LLM agent. Monitors the health warehouse, runs rule models, answers
+the user on **Telegram**, and builds context from Google Calendar.
 
-No LLM at the ingest layer. The ingest worker is durable and stateless;
-reasoning happens above it.
+Runs as Docker container `g-stack-agent-b` on the GCP deployment VM.
+OpenClaw workspace at `../.openclaw/coach-workspace/`.
 
 ## What it owns
 
 | Concern | How |
 |---|---|
-| Google Calendar pull | OAuth 2.0 refresh token; incremental sync via `nextSyncToken` |
-| Google Drive pull | Changed-files feed; metadata + plain-text extraction |
-| Gmail pull | Label-filtered threads; sender + subject + snippet |
-| Warehousing | DuckDB tables: `calendar_events`, `drive_files`, `gmail_threads` |
-| Cross-source queries | Pilot port `1003` on Agent A — read-only SQL access to health samples |
-| Change notifications | Listens on Pilot port `1004` from Agent A for health ChangeEvents |
-| Long-term memory | G-Brain rollup: daily summaries written to shared gbrain instance alongside Agent A's health summaries |
+| Health monitoring | Subscribes to Collector ChangeEvents; runs 7 rule models on each |
+| User interface | Telegram channel registered in OpenClaw; answers ≤200 words, no pipe tables |
+| Cross-source queries | Sends JSON with `sql` field to Collector via `send-message`; Collector executes read-only + replies |
+| Calendar context | `calendar_sync.py` pulls from Google Calendar OAuth → daily markdown → imported into G-Brain |
+| G-Brain memory | `gbrain-coach-home` — interpretations, prior nudges, calendar context. Sole writer. |
+| Evidence backing | `health-intelligence` skill: calls `http://127.0.0.1:8741/retrieve` for paper-backed interventions |
 
-## Why this agent exists
+## Why two separate G-Brains
 
-Health data alone is partial. Knowing that HRV dropped 15% is useful; knowing
-it dropped on a week with 14 calendar events, a flight, and no recovery day is
-actionable. Agent B brings the scheduling and context layer. Both agents write
-to the same G-Brain so a reasoning step can pull "what was happening that week"
-without joining across two separate systems.
+The Collector writes factual observations (what happened, when, raw counts).
+The Coach writes interpretations (what it noticed, what it told the user,
+follow-up hypotheses). Keeping them separate means the Coach can never
+overwrite the Collector's factual record, and each agent's memory is scoped
+to its role.
 
-## Why Pilot for agent-to-agent links
+## The 7 rule models
 
-Both agents run on the homelab. Pilot gives them encrypted, identity-verified
-channels to each other with no shared socket, no auth token, no internal HTTP
-routing table. Agent B subscribes to Agent A's change events on port 1004;
-Agent A queries Agent B's data on port 1003. Either agent can restart without
-the other noticing beyond a brief reconnect.
+Ported from `health-sync/HealthSync/Models.swift`. The Coach runs these
+against the Collector's DuckDB after each ChangeEvent:
 
-## Status: spec + framework
+1. **Sleep regularity** — variance of bedtimes over last 14 nights
+2. **Autonomic balance** — HRV / RHR ratio z-score
+3. **Sedentary stress** — daily steps deficit vs trailing baseline
+4. **Cognitive recovery debt** — sleep debt × HRV depression
+5. **Burnout CUSUM** — running sum of negative RHR deviations
+6. **Circadian drift** — bedtime Mann-Kendall trend
+7. **Kalman HRV** — denoised HRV state estimator
 
-| Concern | Status |
-|---|---|
-| `client.py` — query Agent A via Pilot | ✓ Done |
-| `__main__.py` — CLI: `coach query`, `coach watch`, `coach readiness` | ✓ Done |
-| `gbrain_rollup.py` — health data → daily markdown summaries | ✓ Done (health path; GSuite path not yet wired) |
-| `calendar_sync.py` — Google Calendar OAuth + event pull → markdown | ✓ Standalone (not yet integrated into coach package) |
-| `tools/gbrain.py` — gbrain MCP tool wrappers | ⚠ Skeleton only |
-| Calendar / Drive / Gmail → DuckDB warehouse tables | ✗ Not yet built |
-| G-Brain write wired into package flow | ✗ Not yet built |
+If a rule fires and cooldown has elapsed: Coach writes an insight to its
+G-Brain and sends a proactive Telegram nudge.
 
-## Running (what works today)
+## How messaging works
+
+All Pilot communication is `pilotctl send-message <target> --data <json>`.
+The Collector's inbox_watcher classifies by content shape:
+- JSON with `sql` → handled as a query; QueryResult sent back
+- JSON with `kind: "samples_added"` → ChangeEvent the Coach sent
+
+There are no virtual port numbers at the application level. See
+[`../README.md`](../README.md) for how message classification works.
+
+## Status
+
+| Module | Status | What it does |
+|---|---|---|
+| `client.py` | ✓ Done | `PilotctlPilot` — sends queries via pilotctl, reads results from Pilot inbox |
+| `__main__.py` | ✓ Done | CLI: `coach query`, `coach watch`, `coach readiness` |
+| `gbrain_rollup.py` | ✓ Done (health path) | Derives daily markdown summaries from health data |
+| `calendar_sync.py` | ✓ Standalone | Google Calendar OAuth + incremental event pull → daily markdown files |
+| `tools/gbrain.py` | ⚠ Skeleton | G-Brain MCP tool wrappers |
+| Google Drive + Gmail pull | ✗ Not started | |
+| Drive/Gmail → G-Brain import | ✗ Not started | |
+
+## Running (production)
 
 ```sh
-# Query Agent A's health warehouse
-python -m coach query "SELECT type, COUNT(*) FROM samples GROUP BY type"
+# On the GCP VM:
+docker compose -f infra/docker/docker-compose.yml up -d
+docker logs g-stack-agent-b --follow
 
-# Subscribe to Agent A's change events
-python -m coach watch
-
-# 7-day HRV readiness
-python -m coach readiness
+# One-off calendar import:
+docker exec g-stack-agent-b python -m coach.calendar_sync --days 30
+~/g-stack-hackathon/infra/bin/gbrain-coach import ~/brain/daily/calendar
 ```
 
-`client.py` and the CLI are complete. The Google Calendar OAuth + sync loop also exists as a **standalone script** (`agent-b/coach/calendar_sync.py`) which is functional but not yet integrated into the main coach package flow:
+## Running (local dev)
 
 ```sh
-# One-time OAuth consent (opens browser, persists refresh token)
+# Query the Collector (requires Collector running):
+python -m coach query "SELECT type, COUNT(*) FROM samples GROUP BY type"
+
+# Subscribe to ChangeEvents (runs until interrupted):
+python -m coach watch
+
+# 7-day HRV readiness:
+python -m coach readiness
+
+# One-time Google OAuth consent (opens browser, persists refresh token):
 python agent-b/coach/calendar_sync.py --auth-only
 
-# Pull calendar events → daily markdown files under ~/brain/daily/calendar/
+# Pull 30 days of calendar → ~/brain/daily/calendar/:
 python agent-b/coach/calendar_sync.py --days 30
 ```
 
-Full integration into the coach package (DuckDB warehouse, G-Brain rollup trigger) is the next phase.
+## Google Calendar integration
 
-## Planned data tables
+`calendar_sync.py` implements the full OAuth 2.0 flow with incremental sync
+via `nextSyncToken`. Events are written as daily markdown files under
+`~/brain/daily/calendar/`. The `seed_vm.sh` script on the GCP VM copies
+these files and imports them into both `gbrain-collector-home` and
+`gbrain-coach-home` so both agents have calendar context for cross-source
+reasoning ("HRV dropped on the week with 14 back-to-back calls").
 
-```sql
--- calendar_events
-CREATE TABLE calendar_events (
-  event_id     VARCHAR PRIMARY KEY,
-  calendar_id  VARCHAR NOT NULL,
-  title        VARCHAR,
-  start_utc    DOUBLE  NOT NULL,
-  end_utc      DOUBLE,
-  all_day      BOOLEAN,
-  attendees    INTEGER,
-  location     VARCHAR,
-  synced_utc   DOUBLE  NOT NULL
-);
+## Coach response style
 
--- drive_files
-CREATE TABLE drive_files (
-  file_id      VARCHAR PRIMARY KEY,
-  name         VARCHAR NOT NULL,
-  mime_type    VARCHAR,
-  modified_utc DOUBLE,
-  owner        VARCHAR,
-  shared       BOOLEAN,
-  snippet      TEXT,
-  synced_utc   DOUBLE  NOT NULL
-);
-
--- gmail_threads
-CREATE TABLE gmail_threads (
-  thread_id    VARCHAR PRIMARY KEY,
-  subject      VARCHAR,
-  sender       VARCHAR,
-  snippet      TEXT,
-  labels       JSON,
-  date_utc     DOUBLE  NOT NULL,
-  synced_utc   DOUBLE  NOT NULL
-);
-```
-
-## G-Brain rollup
-
-After each GSuite sync pass, `gbrain_rollup.py` writes a markdown summary
-of the day's scheduling context ("3 back-to-back calls, travel block
-7–10 Jun, 2 late-night emails sent after 22:00") to the shared G-Brain
-instance. Agent A writes health summaries to the same store. Cross-source
-reasoning — "HRV dropped on weeks with dense calendars" — is then a semantic
-G-Brain query, not a join.
-
-## Pilot ports
-
-| Port | Direction | Message | Peer |
-|---|---|---|---|
-| 1003 | outbound | SQL Query | Agent A |
-| 1003 | inbound | QueryResult | Agent A |
-| 1004 | inbound | ChangeEvent (health data) | Agent A |
+- Default ≤200 words. Lead with the answer in the first sentence.
+- **No pipe tables** — Telegram doesn't render them. Use bullets, prose,
+  or space-aligned ASCII tables inside code fences.
+- Cite tools inline: `(via coach query)`, `(per gbrain 2026/2026-05-13)`.
+- When answering health questions, end with an "Evidence-based
+  recommendations" section from the health-intelligence skill.
+- One Telegram message per proactive nudge; rate-limited per rule.
 
 ## What's next
 
-1. Google OAuth flow + refresh token persistence (`.env` + infra secrets)
-2. Incremental Calendar pull with `nextSyncToken`
-3. Drive changed-files feed with plain-text extraction
-4. Gmail label-filtered thread sync
-5. DuckDB schema + ingestion for all three sources
-6. G-Brain rollup outputs wired to actual daily summaries
+1. Google Drive changed-files feed with plain-text extraction
+2. Gmail label-filtered thread sync
+3. Drive/Gmail → G-Brain import wired into main flow
+4. G-Brain rollup triggered on Coach after each ChangeEvent
 
 ## Where it fits
 
 ```
-Google Workspace (OAuth pull)
-    │
+Google Calendar (OAuth pull)
+    │  calendar_sync.py → ~/brain/daily/calendar/
     ▼
-┌───────────────────────────────────┐
-│  agent-b  (this directory)        │
-│  OAuth ← GSuite incremental sync  │
-│  Pilot 1003 → query Agent A       │
-│  Pilot 1004 ← health ChangeEvents │
-│  DuckDB  gsuite.duckdb            │
-│  G-Brain rollup                   │
-└──────────┬────────────────────────┘
-           │ Pilot
-     ┌─────┴─────────────────────────┐
-     │                               │
-  agent-a                    health-intelligence
-  (health ingest)             (RAG + ZeroEntropy)
+┌─────────────────────────────────┐
+│  g-stack-agent-b  (Coach)       │
+│  python -m coach watch          │
+│  G-Brain: gbrain-coach-home     │
+│  OpenClaw workspace             │
+└──────────┬──────────────────────┘
+           │  send-message (SQL queries)
+           │  receives ChangeEvents
+     ┌─────▼─────────────────────────┐
+     │  g-stack-agent-a  (Collector) │
+     └───────────────────────────────┘
+           │  OpenClaw channel
+     ┌─────▼──────┐
+     │  Telegram  │
+     └────────────┘
 ```
 
 See [`../README.md`](../README.md) for the full picture and
-[`../infra`](../infra) for the shared setup (Pilot identity, G-Brain path,
-DuckDB locations, OAuth credentials).
+[`../infra`](../infra) for Docker Compose setup and secrets layout.
