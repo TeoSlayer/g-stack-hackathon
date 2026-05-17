@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>g-stack — Personal Data Substrate</title>
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --surface: #111318;
+      --surface2: #181c24;
+      --border: rgba(255,255,255,0.07);
+      --accent: #3b82f6;
+      --accent2: #8b5cf6;
+      --accent3: #10b981;
+      --accent4: #f59e0b;
+      --accent5: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --dim: #94a3b8;
+      --glow: rgba(59,130,246,0.15);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 40px;
+      background: rgba(10,12,16,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .nav-links { display: flex; gap: 28px; }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 100px 24px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 40%, rgba(59,130,246,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 60%, rgba(139,92,246,0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 50% 80%, rgba(16,185,129,0.08) 0%, transparent 50%);
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(59,130,246,0.3);
+      background: rgba(59,130,246,0.08);
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+    .hero-badge span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .hero h1 {
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+    .hero h1 .grad {
+      background: linear-gradient(135deg, #fff 30%, var(--accent) 60%, var(--accent2) 90%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.35rem);
+      color: var(--dim);
+      max-width: 640px;
+      margin: 18px auto 40px;
+    }
+
+    .hero-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 56px;
+    }
+    .pill {
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--dim);
+    }
+
+    .hero-scroll {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      animation: bounce 2s infinite;
+    }
+    .hero-scroll svg { width: 20px; height: 20px; }
+    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+
+    /* ── SECTION BASE ── */
+    section { padding: 100px 24px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    .section-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .section-title {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+    .section-desc {
+      color: var(--dim);
+      max-width: 560px;
+      font-size: 1rem;
+      margin-bottom: 60px;
+    }
+
+    /* ── PRINCIPLES ── */
+    #principles { background: var(--surface); }
+    .principles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .principle-card {
+      padding: 28px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+    .principle-card:hover { border-color: rgba(59,130,246,0.3); transform: translateY(-2px); }
+    .principle-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .pc-blue::before { background: linear-gradient(90deg, var(--accent), transparent); }
+    .pc-purple::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+    .pc-green::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+    .pc-amber::before { background: linear-gradient(90deg, var(--accent4), transparent); }
+    .pc-red::before { background: linear-gradient(90deg, var(--accent5), transparent); }
+
+    .principle-num {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--border);
+      margin-bottom: 12px;
+      line-height: 1;
+    }
+    .principle-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+    .principle-card p { font-size: 0.875rem; color: var(--dim); line-height: 1.6; }
+
+    /* ── ARCHITECTURE ── */
+    #architecture { background: var(--bg); }
+    .arch-diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 48px;
+      position: relative;
+      overflow: hidden;
+    }
+    .arch-diagram::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(59,130,246,0.05), transparent);
+      pointer-events: none;
+    }
+
+    .arch-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      align-items: stretch;
+    }
+    .arch-row.center { justify-content: center; }
+
+    .arch-node {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 18px 22px;
+      flex: 1;
+      position: relative;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .arch-node:hover {
+      border-color: rgba(255,255,255,0.2);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    .arch-node.blue { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.25); }
+    .arch-node.purple { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.25); }
+    .arch-node.green { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.25); }
+    .arch-node.amber { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.25); }
+    .arch-node.dim { background: var(--surface2); }
+
+    .arch-node-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+      opacity: 0.6;
+    }
+    .arch-node-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 6px;
+    }
+    .arch-node-desc {
+      font-size: 0.78rem;
+      color: var(--dim);
+      line-height: 1.5;
+    }
+
+    .arch-connector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 4px;
+      padding: 0 8px;
+      min-width: 80px;
+    }
+    .arch-connector-line {
+      flex: 1;
+      width: 2px;
+      background: linear-gradient(to bottom, transparent, var(--accent), transparent);
+      position: relative;
+    }
+    .arch-connector-label {
+      font-size: 0.65rem;
+      color: var(--accent);
+      text-align: center;
+      white-space: nowrap;
+      background: var(--surface);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(59,130,246,0.3);
+    }
+
+    .arch-h-connector {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 0 -8px;
+    }
+    .arch-h-line {
+      height: 2px;
+      flex: 1;
+      background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+    }
+    .arch-h-label {
+      font-size: 0.65rem;
+      color: var(--accent2);
+      padding: 2px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(139,92,246,0.3);
+      background: var(--surface);
+      white-space: nowrap;
+    }
+
+    /* ── DATA FLOW ── */
+    #dataflow { background: var(--surface); }
+    .flow-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+    .flow-steps::before {
+      content: '';
+      position: absolute;
+      left: 20px;
+      top: 40px;
+      bottom: 40px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--accent), var(--accent2), var(--accent3));
+    }
+    .flow-step {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      padding: 20px 0;
+    }
+    .flow-step-num {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .flow-step:nth-child(1) .flow-step-num { background: rgba(59,130,246,0.2); border: 2px solid var(--accent); color: var(--accent); }
+    .flow-step:nth-child(2) .flow-step-num { background: rgba(59,130,246,0.2); border: 2px solid var(--accent); color: var(--accent); }
+    .flow-step:nth-child(3) .flow-step-num { background: rgba(139,92,246,0.2); border: 2px solid var(--accent2); color: var(--accent2); }
+    .flow-step:nth-child(4) .flow-step-num { background: rgba(139,92,246,0.2); border: 2px solid var(--accent2); color: var(--accent2); }
+    .flow-step:nth-child(5) .flow-step-num { background: rgba(16,185,129,0.2); border: 2px solid var(--accent3); color: var(--accent3); }
+    .flow-step:nth-child(6) .flow-step-num { background: rgba(16,185,129,0.2); border: 2px solid var(--accent3); color: var(--accent3); }
+    .flow-step:nth-child(7) .flow-step-num { background: rgba(245,158,11,0.2); border: 2px solid var(--accent4); color: var(--accent4); }
+    .flow-step:nth-child(8) .flow-step-num { background: rgba(245,158,11,0.2); border: 2px solid var(--accent4); color: var(--accent4); }
+
+    .flow-step-content { padding-top: 8px; }
+    .flow-step-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; }
+    .flow-step-desc { font-size: 0.85rem; color: var(--dim); }
+    code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.8em;
+      background: rgba(255,255,255,0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    /* ── COMPONENTS ── */
+    #components { background: var(--bg); }
+    .components-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+    .component-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      overflow: hidden;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+    .component-card:hover { transform: translateY(-3px); }
+    .component-header {
+      padding: 22px 24px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .component-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      margin-bottom: 12px;
+    }
+    .component-header h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+    .component-header .sub { font-size: 0.78rem; color: var(--muted); }
+    .component-body { padding: 18px 24px; }
+    .component-desc { font-size: 0.85rem; color: var(--dim); margin-bottom: 16px; line-height: 1.6; }
+    .component-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .status-done { background: rgba(16,185,129,0.12); color: var(--accent3); border: 1px solid rgba(16,185,129,0.25); }
+    .status-partial { background: rgba(245,158,11,0.12); color: var(--accent4); border: 1px solid rgba(245,158,11,0.25); }
+    .status-spec { background: rgba(100,116,139,0.12); color: var(--muted); border: 1px solid rgba(100,116,139,0.25); }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .component-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+    .tag {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    /* ── PORTS TABLE ── */
+    #ports { background: var(--surface); }
+    .ports-table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    thead { background: var(--surface2); }
+    th {
+      text-align: left;
+      padding: 12px 20px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .port-badge {
+      display: inline-block;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.8rem;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .port-1001 { background: rgba(59,130,246,0.15); color: var(--accent); }
+    .port-1002 { background: rgba(59,130,246,0.1); color: #93c5fd; }
+    .port-1003 { background: rgba(139,92,246,0.15); color: #c4b5fd; }
+    .port-1004 { background: rgba(16,185,129,0.15); color: var(--accent3); }
+    .dir-in { color: #60a5fa; }
+    .dir-out { color: #86efac; }
+    .dir-both { color: #c4b5fd; }
+
+    /* ── METRICS ── */
+    #metrics { background: var(--bg); }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .metric-card {
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .metric-card:hover { border-color: rgba(139,92,246,0.3); transform: translateY(-1px); }
+    .metric-tier {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .metric-name { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+    .metric-alert { font-size: 0.72rem; color: var(--accent5); font-family: 'SF Mono', 'Fira Code', monospace; }
+    .metric-card.tier-base { border-top: 2px solid var(--accent); }
+    .metric-card.tier-1 { border-top: 2px solid var(--accent2); }
+    .metric-card.tier-2 { border-top: 2px solid var(--accent3); }
+    .metric-card.tier-3 { border-top: 2px solid var(--accent4); }
+    .metric-card.tier-4 { border-top: 2px solid var(--muted); }
+
+    /* ── HEALTH INTELLIGENCE ── */
+    #health-intel { background: var(--surface); }
+    .intel-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+    @media (max-width: 768px) { .intel-split { grid-template-columns: 1fr; } }
+    .intel-paths {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .intel-path {
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .intel-path-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .intel-path-title .badge {
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      background: rgba(59,130,246,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(59,130,246,0.2);
+    }
+    .intel-path-title h4 { font-size: 0.9rem; font-weight: 600; }
+    .intel-path p { font-size: 0.82rem; color: var(--dim); }
+    .intel-stat {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .stat-block {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .stat-item {
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── PILOT PROTOCOL ── */
+    #pilot { background: var(--bg); }
+    .pilot-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+    }
+    .pilot-feature {
+      padding: 22px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .pilot-feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+    }
+    .pilot-feature h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+    .pilot-feature p { font-size: 0.82rem; color: var(--dim); }
+
+    /* ── TECH STACK ── */
+    #tech { background: var(--surface); }
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .tech-item {
+      padding: 18px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .tech-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .tech-name { font-size: 0.88rem; font-weight: 600; margin-bottom: 2px; }
+    .tech-role { font-size: 0.74rem; color: var(--muted); }
+
+    /* ── DATA SOVEREIGNTY ── */
+    #sovereignty { background: var(--bg); padding-bottom: 120px; }
+    .sovereignty-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+    @media (max-width: 768px) { .sovereignty-row { grid-template-columns: 1fr; } }
+    .trust-chain {
+      padding: 28px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .trust-chain h3 { font-size: 1rem; font-weight: 700; margin-bottom: 20px; }
+    .trust-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .trust-step:last-child { border-bottom: none; }
+    .trust-step-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .trust-step-text { font-size: 0.82rem; }
+    .trust-step-title { font-weight: 600; margin-bottom: 2px; }
+    .trust-step-desc { color: var(--dim); }
+    .external-surfaces {
+      padding: 28px;
+      border-radius: 16px;
+      border: 1px solid rgba(245,158,11,0.2);
+      background: rgba(245,158,11,0.04);
+    }
+    .external-surfaces h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .external-surfaces .note { font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; }
+    .external-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(245,158,11,0.1);
+    }
+    .external-item:last-child { border-bottom: none; }
+    .external-item .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .external-item-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+    .external-item-desc { font-size: 0.78rem; color: var(--dim); }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 40px 40px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-logo {
+      font-size: 0.95rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    footer a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: color 0.2s;
+    }
+    footer a:hover { color: var(--text); }
+    .footer-links { display: flex; gap: 24px; }
+    footer .copy { font-size: 0.75rem; color: var(--muted); }
+
+    /* ── ANIMATIONS ── */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── ANIMATED FLOW DOTS ── */
+    .flow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      position: absolute;
+      animation: flow-anim 3s infinite;
+    }
+    @keyframes flow-anim {
+      0% { opacity: 0; top: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { opacity: 0; top: 100%; }
+    }
+
+    /* media */
+    @media (max-width: 640px) {
+      nav { padding: 12px 20px; }
+      .nav-links { display: none; }
+      .arch-diagram { padding: 24px 16px; }
+      .arch-row { flex-direction: column; }
+      .arch-connector { display: none; }
+      section { padding: 60px 20px; }
+      footer { padding: 28px 20px; }
+    }
+
+    /* ── STAT BAR ── */
+    .stat-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 20px;
+      padding: 40px;
+      background: var(--surface);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      margin-bottom: 60px;
+    }
+    .stat-bar-item { text-align: center; }
+    .stat-bar-num {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+    .stat-bar-label { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-logo">g-stack</span>
+  <div class="nav-links">
+    <a href="#principles">Principles</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#components">Components</a>
+    <a href="#dataflow">Data Flow</a>
+    <a href="#metrics">Metrics</a>
+    <a href="#health-intel">Retrieval</a>
+    <a href="https://github.com/TeoSlayer/g-stack-hackathon" target="_blank">GitHub</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-badge"><span></span> Personal Data Substrate</div>
+  <h1><span class="grad">g-stack</span></h1>
+  <p class="hero-sub">Two ingestion agents backed by G-Brain memory, a health-intelligence retrieval layer, and Pilot Protocol as the communication shim — connecting phone, agents, and retrieval with zero extra infrastructure.</p>
+  <div class="hero-pills">
+    <span class="pill">iPhone + Apple Watch</span>
+    <span class="pill">Pilot Protocol</span>
+    <span class="pill">27 on-device models</span>
+    <span class="pill">DuckDB warehousing</span>
+    <span class="pill">G-Brain memory</span>
+    <span class="pill">FastAPI RAG server</span>
+    <span class="pill">17 peer-reviewed papers</span>
+    <span class="pill">Google Workspace</span>
+  </div>
+  <div class="hero-scroll">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12l7 7 7-7"/>
+    </svg>
+    Scroll to explore
+  </div>
+</div>
+
+<!-- PRINCIPLES -->
+<section id="principles">
+  <div class="container">
+    <div class="section-label">Philosophy</div>
+    <h2 class="section-title">Five principles</h2>
+    <p class="section-desc">Design decisions that shape every component.</p>
+
+    <div class="principles-grid">
+      <div class="principle-card pc-blue fade-up">
+        <div class="principle-num">01</div>
+        <h3>Two agents, one memory model</h3>
+        <p>Agent A warehouses health data from iPhone via Pilot. Agent B warehouses Google Workspace data via OAuth. Both share G-Brain for long-term semantic memory. Neither runs an LLM — they are durable ingest workers, not reasoning engines.</p>
+      </div>
+      <div class="principle-card pc-purple fade-up">
+        <div class="principle-num">02</div>
+        <h3>Pilot is the data shim</h3>
+        <p>The iOS app embeds the Pilot daemon and pushes HealthKit envelopes directly to Agent A over an encrypted, NAT-traversed tunnel. No port forwarding, no VPN, no shared HTTP endpoint. The same overlay carries agent-to-agent messages.</p>
+      </div>
+      <div class="principle-card pc-green fade-up">
+        <div class="principle-num">03</div>
+        <h3>Health intelligence is retrieval, not a chatbot</h3>
+        <p>A FastAPI server backed by 17 systematic reviews and meta-analyses returns ranked, citable intervention recommendations given alert values or a free-text query. Results are ranked by cosine similarity with ZeroEntropy reranking planned.</p>
+      </div>
+      <div class="principle-card pc-amber fade-up">
+        <div class="principle-num">04</div>
+        <h3>gstack-ios closes the development loop</h3>
+        <p>Claude Code with the gstack-ios skill pack drives xcodebuild, simulators, signing, perf traces, and TestFlight uploads. The iOS development loop runs entirely in the agent — 13 skills covering every edge.</p>
+      </div>
+      <div class="principle-card pc-red fade-up">
+        <div class="principle-num">05</div>
+        <h3>Data never leaves hardware you control</h3>
+        <p>iPhone collects, Pilot transports, agents warehouse. G-Brain and DuckDB are local files. The only external surfaces are Google OAuth, ZeroEntropy reranking, and whichever LLM is used for synthesis.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="container">
+    <div class="section-label">System Design</div>
+    <h2 class="section-title">Architecture</h2>
+    <p class="section-desc">Everything communicates through Pilot Protocol — encrypted, NAT-traversed, identity-verified.</p>
+
+    <div class="arch-diagram fade-up">
+      <!-- Pilot overlay wrapper label -->
+      <div style="text-align:center; margin-bottom: 32px;">
+        <span style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.12em; color:var(--accent); border:1px solid rgba(59,130,246,0.3); padding:4px 16px; border-radius:999px;">Pilot Overlay Network — encrypted · NAT-traversed · identity-verified</span>
+      </div>
+
+      <!-- Row 1: data sources -->
+      <div class="arch-row">
+        <div class="arch-node blue" style="max-width:280px;">
+          <div class="arch-node-label">Data Source</div>
+          <div class="arch-node-title">📱 iPhone + Apple Watch</div>
+          <div class="arch-node-desc">HealthKit anchored queries · 27 on-device models · Readiness score · PilotSyncTransport embedded</div>
+        </div>
+        <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+          <div style="text-align:center; color:var(--muted); font-size:0.75rem;">
+            <div style="height:2px; background:linear-gradient(90deg, transparent, var(--accent), transparent); margin-bottom:6px;"></div>
+          </div>
+        </div>
+        <div class="arch-node green" style="max-width:280px;">
+          <div class="arch-node-label">Data Source</div>
+          <div class="arch-node-title">☁️ Google Workspace</div>
+          <div class="arch-node-desc">Calendar · Drive · Gmail · OAuth 2.0 incremental sync with nextSyncToken</div>
+        </div>
+      </div>
+
+      <!-- connectors down -->
+      <div class="arch-row">
+        <div style="flex:1; max-width:280px; display:flex; justify-content:center;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding: 8px 0;">
+            <div style="width:2px; height:24px; background:linear-gradient(to bottom, var(--accent), rgba(59,130,246,0.3));"></div>
+            <span style="font-size:0.65rem; color:var(--accent); background:var(--surface2); padding:2px 8px; border-radius:4px; border:1px solid rgba(59,130,246,0.3); white-space:nowrap;">Pilot port 1001 · E2E encrypted</span>
+            <div style="width:2px; height:24px; background:linear-gradient(to bottom, rgba(59,130,246,0.3), transparent);"></div>
+          </div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="flex:1; max-width:280px; display:flex; justify-content:center;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding: 8px 0;">
+            <div style="width:2px; height:24px; background:linear-gradient(to bottom, var(--accent3), rgba(16,185,129,0.3));"></div>
+            <span style="font-size:0.65rem; color:var(--accent3); background:var(--surface2); padding:2px 8px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); white-space:nowrap;">OAuth pull · incremental</span>
+            <div style="width:2px; height:24px; background:linear-gradient(to bottom, rgba(16,185,129,0.3), transparent);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: agents -->
+      <div class="arch-row" style="margin-bottom:0;">
+        <div class="arch-node blue">
+          <div class="arch-node-label">Agent A</div>
+          <div class="arch-node-title">🏥 Health Ingest</div>
+          <div class="arch-node-desc">Dedupes by sample UUID · DuckDB warehouse · SQL query gate · ChangeEvent broadcaster · 84 tests passing</div>
+          <div style="margin-top:10px; font-size:0.7rem; color:var(--accent); display:flex; gap:8px; flex-wrap:wrap;">
+            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">port 1001 ingest</span>
+            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">port 1003 SQL</span>
+            <span style="background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:4px;">port 1004 events</span>
+          </div>
+        </div>
+
+        <!-- horizontal Pilot connector -->
+        <div style="display:flex; align-items:center; padding: 0 8px; min-width:100px;">
+          <div style="flex:1; height:2px; background:linear-gradient(90deg, var(--accent), var(--accent2));"></div>
+          <div style="padding:0 8px; text-align:center;">
+            <div style="font-size:0.62rem; color:var(--accent2); background:var(--surface2); padding:3px 8px; border-radius:4px; border:1px solid rgba(139,92,246,0.3); white-space:nowrap;">Pilot 1003↔ 1004↑</div>
+          </div>
+          <div style="flex:1; height:2px; background:linear-gradient(90deg, var(--accent2), var(--accent3));"></div>
+        </div>
+
+        <div class="arch-node green">
+          <div class="arch-node-label">Agent B</div>
+          <div class="arch-node-title">📅 GSuite Ingest</div>
+          <div class="arch-node-desc">Calendar · Drive · Gmail pull · DuckDB warehouse · G-Brain rollup · Subscribes to Agent A change events</div>
+          <div style="margin-top:10px; font-size:0.7rem; color:var(--accent3); display:flex; gap:8px; flex-wrap:wrap;">
+            <span style="background:rgba(16,185,129,0.1);padding:2px 6px;border-radius:4px;">OAuth 2.0</span>
+            <span style="background:rgba(16,185,129,0.1);padding:2px 6px;border-radius:4px;">DuckDB</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- G-Brain shared connector -->
+      <div style="display:flex; justify-content:center; padding: 12px 0;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+          <div style="width:2px; height:20px; background:linear-gradient(to bottom, var(--accent2), rgba(139,92,246,0.5));"></div>
+          <span style="font-size:0.65rem; color:var(--accent2); background:var(--surface2); padding:2px 12px; border-radius:4px; border:1px solid rgba(139,92,246,0.3);">shared G-Brain writes · daily markdown summaries</span>
+          <div style="width:2px; height:20px; background:linear-gradient(to bottom, rgba(139,92,246,0.5), var(--accent2));"></div>
+        </div>
+      </div>
+
+      <!-- G-Brain shared node -->
+      <div class="arch-row center">
+        <div class="arch-node purple" style="max-width:400px; text-align:center;">
+          <div class="arch-node-label">Shared Memory</div>
+          <div class="arch-node-title">🧠 G-Brain (PGLite)</div>
+          <div class="arch-node-desc">Daily markdown summaries from both agents. Cross-source reasoning: "HRV dropped on weeks with 14 calendar events" — a semantic query, not a join.</div>
+        </div>
+      </div>
+
+      <!-- down to health-intelligence -->
+      <div style="display:flex; justify-content:center; padding: 12px 0;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+          <div style="width:2px; height:20px; background:linear-gradient(to bottom, var(--accent), rgba(59,130,246,0.5));"></div>
+          <span style="font-size:0.65rem; color:var(--accent); background:var(--surface2); padding:2px 12px; border-radius:4px; border:1px solid rgba(59,130,246,0.3);">SQL queries · alert values</span>
+          <div style="width:2px; height:20px; background:linear-gradient(to bottom, rgba(59,130,246,0.5), transparent);"></div>
+        </div>
+      </div>
+
+      <!-- health intelligence -->
+      <div class="arch-row center">
+        <div class="arch-node amber" style="max-width:500px; text-align:center;">
+          <div class="arch-node-label">Retrieval Layer</div>
+          <div class="arch-node-title">📚 health-intelligence</div>
+          <div class="arch-node-desc">FastAPI · 17 peer-reviewed papers · 89 interventions · alert-match + semantic retrieval · cosine similarity ranking · ZeroEntropy reranking planned · Port 8741</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DATA FLOW -->
+<section id="dataflow">
+  <div class="container">
+    <div class="section-label">End-to-End</div>
+    <h2 class="section-title">Data flow</h2>
+    <p class="section-desc">From wrist to warehouse to reasoning, fully traced.</p>
+
+    <div class="flow-steps">
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">1</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">HealthSyncManager polls HealthKit</div>
+          <div class="flow-step-desc">Anchored queries ensure every sample is captured exactly once. 27 on-device models compute HRV stability, ACWR, sleep efficiency, burnout CUSUM, and more — entirely on-device, no server dependency.</div>
+        </div>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">2</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">Samples encoded → Pilot envelope (JSON)</div>
+          <div class="flow-step-desc">Each envelope carries a batch UUID, sample UUIDs, version tag, and the raw + computed values. The iOS app is itself a Pilot node — <code>pilot-swift</code> is a precompiled Go daemon running inside the app sandbox.</div>
+        </div>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">3</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">PilotSyncTransport sends to Agent A on port 1001</div>
+          <div class="flow-step-desc">End-to-end encrypted tunnel. NAT-traversed — no homelab port forwarding needed. Pilot handles identity (Ed25519), delivery confirmation, and reconnect. <code>isLikelyAvailable()</code> gates the send.</div>
+        </div>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">4</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">Agent A dedupes by UUID, writes to DuckDB, acks back</div>
+          <div class="flow-step-desc"><code>INSERT OR IGNORE</code> on sample UUID is the deduplication primitive. DuckDB gives single-writer durability with MVCC reads. Accepted, duplicate, and rejected UUIDs returned in the Ack.</div>
+        </div>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">5</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">iOS advances HK anchor only after ack received</div>
+          <div class="flow-step-desc">The HealthKit anchor is a write barrier. It only advances when Agent A has confirmed persistence. A crash or network failure causes the same samples to be re-sent — they are deduped on arrival.</div>
+        </div>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">6</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">Agent A emits ChangeEvent on port 1004</div>
+          <div class="flow-step-desc">After each batch commit, a <code>ChangeEvent</code> broadcast fires: <code>&#123;table, new_count, since_ts&#125;</code>. Any subscriber on the Pilot overlay can react to new health data without polling.</div>
+        </div>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">7</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">Agent B subscribes; cross-source inference available</div>
+          <div class="flow-step-desc">Agent B subscribes to port 1004. On a health ChangeEvent, it can issue SQL queries back to Agent A on port 1003 — joining health samples against its own Google Calendar / Drive / Gmail warehouse for context-aware analysis.</div>
+        </div>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-step-num">8</div>
+        <div class="flow-step-content">
+          <div class="flow-step-title">health-intelligence retrieves, ranks, returns to LLM</div>
+          <div class="flow-step-desc">Alert values trigger exact-match lookup in the interventions index. A free-text query runs cosine similarity over <code>all-MiniLM-L6-v2</code> 384-dim embeddings. Results include paper citations, score, and an LLM-ready prompt guardrailed to only cite indexed sources.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPONENTS -->
+<section id="components">
+  <div class="container">
+    <div class="section-label">Sub-projects</div>
+    <h2 class="section-title">Components</h2>
+    <p class="section-desc">Seven sub-projects, each with a distinct responsibility and build status.</p>
+
+    <div class="components-grid">
+
+      <div class="component-card fade-up">
+        <div class="component-header">
+          <div class="component-icon" style="background:rgba(59,130,246,0.12);">📱</div>
+          <h3>health-sync</h3>
+          <div class="sub">iOS + watchOS + Widget</div>
+        </div>
+        <div class="component-body">
+          <p class="component-desc">Reads HealthKit, runs 27 on-device models, charts trends and forecasts with hex-binned location heatmap. Pushes envelopes to Agent A via PilotSyncTransport.</p>
+          <span class="component-status status-done"><span class="status-dot"></span>Working standalone · Pilot transport active</span>
+          <div class="component-tags">
+            <span class="tag">SwiftUI</span><span class="tag">HealthKit</span><span class="tag">CoreML</span><span class="tag">Pilot embedded</span><span class="tag">watchOS</span><span class="tag">WidgetKit</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="component-card fade-up">
+        <div class="component-header">
+          <div class="component-icon" style="background:rgba(139,92,246,0.12);">⚡</div>
+          <h3>pilot-swift</h3>
+          <div class="sub">Swift Pilot SDK</div>
+        </div>
+        <div class="component-body">
+          <p class="component-desc">Static Pilot.xcframework + idiomatic Swift wrapper. Embeds the Go Pilot daemon inside the iOS app sandbox. alice/bob encrypted handshake smoke test passes on iOS simulator.</p>
+          <span class="component-status status-done"><span class="status-dot"></span>Working</span>
+          <div class="component-tags">
+            <span class="tag">Swift Package</span><span class="tag">xcframework</span><span class="tag">Ed25519</span><span class="tag">NAT traversal</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="component-card fade-up">
+        <div class="component-header">
+          <div class="component-icon" style="background:rgba(16,185,129,0.12);">🏥</div>
+          <h3>agent-a</h3>
+          <div class="sub">Health Ingest</div>
+        </div>
+        <div class="component-body">
+          <p class="component-desc">Pilot listener on port 1001, DuckDB warehouse, SQL query gate on port 1003, ChangeEvent broadcaster on port 1004. UUID-based deduplication. PilotctlTransport fully implemented.</p>
+          <span class="component-status status-done"><span class="status-dot"></span>Core built · 84 tests passing</span>
+          <div class="component-tags">
+            <span class="tag">Python</span><span class="tag">DuckDB</span><span class="tag">Pydantic</span><span class="tag">Pilot</span><span class="tag">pytest</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="component-card fade-up">
+        <div class="component-header">
+          <div class="component-icon" style="background:rgba(245,158,11,0.12);">📅</div>
+          <h3>agent-b</h3>
+          <div class="sub">GSuite Ingest</div>
+        </div>
+        <div class="component-body">
+          <p class="component-desc">Pulls Calendar, Drive, Gmail via OAuth. Warehouses to DuckDB. G-Brain rollup. Speaks to Agent A via Pilot for cross-source reasoning. Calendar sync standalone and functional.</p>
+          <span class="component-status status-partial"><span class="status-dot"></span>Framework built · OAuth pull in progress</span>
+          <div class="component-tags">
+            <span class="tag">Python</span><span class="tag">Google OAuth</span><span class="tag">DuckDB</span><span class="tag">G-Brain</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="component-card fade-up">
+        <div class="component-header">
+          <div class="component-icon" style="background:rgba(16,185,129,0.12);">📚</div>
+          <h3>health-intelligence</h3>
+          <div class="sub">RAG Retrieval Server</div>
+        </div>
+        <div class="component-body">
+          <p class="component-desc">FastAPI server backed by 17 peer-reviewed systematic reviews. 89 interventions. Alert-match + semantic retrieval. Cosine similarity ranking. ZeroEntropy reranking planned.</p>
+          <span class="component-status status-done"><span class="status-dot"></span>Server running · port 8741</span>
+          <div class="component-tags">
+            <span class="tag">FastAPI</span><span class="tag">sentence-transformers</span><span class="tag">Pydantic</span><span class="tag">RAG</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="component-card fade-up">
+        <div class="component-header">
+          <div class="component-icon" style="background:rgba(59,130,246,0.12);">🛠</div>
+          <h3>gstack-ios</h3>
+          <div class="sub">iOS Dev Skill Pack</div>
+        </div>
+        <div class="component-body">
+          <p class="component-desc">13 Claude Code skills covering build, test, signing, perf traces, and TestFlight uploads. Used to develop health-sync itself — the full iOS loop runs inside the agent.</p>
+          <span class="component-status status-done"><span class="status-dot"></span>All 13 skills active</span>
+          <div class="component-tags">
+            <span class="tag">xcodebuild</span><span class="tag">simctl</span><span class="tag">Instruments</span><span class="tag">TestFlight</span><span class="tag">XCTest</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="component-card fade-up">
+        <div class="component-header">
+          <div class="component-icon" style="background:rgba(100,116,139,0.12);">⚙️</div>
+          <h3>infra</h3>
+          <div class="sub">Operator Runbook</div>
+        </div>
+        <div class="component-body">
+          <p class="component-desc">OpenClaw config, Pilot identity and trust, DuckDB and G-Brain storage layout, Google OAuth credentials, launchd/systemd units, backup and health-check scripts.</p>
+          <span class="component-status status-spec"><span class="status-dot"></span>Spec complete · materialises on first deploy</span>
+          <div class="component-tags">
+            <span class="tag">OpenClaw</span><span class="tag">launchd</span><span class="tag">systemd</span><span class="tag">backup</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PILOT PORTS -->
+<section id="ports">
+  <div class="container">
+    <div class="section-label">Networking</div>
+    <h2 class="section-title">Pilot ports</h2>
+    <p class="section-desc">All inter-component communication uses Pilot — encrypted, NAT-traversed, no shared socket.</p>
+
+    <div class="ports-table-wrap fade-up">
+      <table>
+        <thead>
+          <tr>
+            <th>Port</th>
+            <th>Direction</th>
+            <th>Message type</th>
+            <th>Between</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="port-badge port-1001">1001</span></td>
+            <td><span class="dir-in">→ Agent A</span></td>
+            <td>HealthKit envelope (JSON)</td>
+            <td>iOS app → Agent A</td>
+          </tr>
+          <tr>
+            <td><span class="port-badge port-1002">1002</span></td>
+            <td><span class="dir-out">← Agent A</span></td>
+            <td>Ack (accepted / duplicate / rejected UUIDs)</td>
+            <td>Agent A → iOS app</td>
+          </tr>
+          <tr>
+            <td><span class="port-badge port-1003">1003</span></td>
+            <td><span class="dir-both">↔ Agent A</span></td>
+            <td>SQL query string + result set</td>
+            <td>Agent B / health-intelligence ↔ Agent A</td>
+          </tr>
+          <tr>
+            <td><span class="port-badge port-1004">1004</span></td>
+            <td><span class="dir-out">← Agent A</span></td>
+            <td>ChangeEvent broadcast <code>&#123;table, new_count, since_ts&#125;</code></td>
+            <td>Agent A → Agent B (and any subscriber)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- HEALTH INTELLIGENCE -->
+<section id="health-intel">
+  <div class="container">
+    <div class="section-label">Retrieval</div>
+    <h2 class="section-title">health-intelligence</h2>
+    <p class="section-desc">Evidence-based intervention retrieval. Two paths. No hallucination — only indexed paper text returned.</p>
+
+    <div class="intel-split fade-up">
+      <div class="intel-paths">
+        <div class="intel-path">
+          <div class="intel-path-title">
+            <div class="badge">alert_match</div>
+            <h4>Exact alert lookup</h4>
+          </div>
+          <p>Given a triggered alert with <code>metric_id</code> + <code>band</code>, returns all interventions indexed to that metric. Score fixed at 1.0. No embeddings. Sub-5ms response.</p>
+          <div class="intel-stat">Trigger: <code>alerts</code> list in request · Speed: &lt;5 ms</div>
+        </div>
+        <div class="intel-path">
+          <div class="intel-path-title">
+            <div class="badge" style="background:rgba(139,92,246,0.12);color:var(--accent2);border-color:rgba(139,92,246,0.2);">semantic</div>
+            <h4>Cosine similarity retrieval</h4>
+          </div>
+          <p>Free-text query embedded with <code>all-MiniLM-L6-v2</code> (384-dim), L2-normalised, compared against cached paper embeddings. Skips texts already returned by alert path.</p>
+          <div class="intel-stat">Trigger: <code>query</code> string · Speed: ~10 ms warm · Cold start: ~11 s (model load)</div>
+        </div>
+        <div class="intel-path" style="border-color:rgba(245,158,11,0.2); background:rgba(245,158,11,0.04);">
+          <div class="intel-path-title">
+            <div class="badge" style="background:rgba(245,158,11,0.1);color:var(--accent4);border-color:rgba(245,158,11,0.2);">planned</div>
+            <h4>ZeroEntropy reranking</h4>
+          </div>
+          <p>Architecture reserves a reranking stage between retrieval and formatting. ZeroEntropy integration is planned — not yet implemented. Current fallback is cosine similarity order.</p>
+          <div class="intel-stat">Requires: <code>ZEROENTROPY_API_KEY</code> in <code>infra/.env</code></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="stat-block" style="margin-bottom:20px;">
+          <div class="stat-item">
+            <div class="stat-num">17</div>
+            <div class="stat-label">peer-reviewed papers</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">89</div>
+            <div class="stat-label">interventions indexed</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">25</div>
+            <div class="stat-label">metric IDs covered</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">8741</div>
+            <div class="stat-label">server port</div>
+          </div>
+        </div>
+
+        <div style="padding:20px; border-radius:12px; border:1px solid var(--border); background:var(--bg); font-size:0.8rem; color:var(--dim);">
+          <div style="font-weight:600; color:var(--text); margin-bottom:10px; font-size:0.85rem;">API quick-start</div>
+          <div style="font-family:monospace; line-height:1.8; font-size:0.75rem;">
+            <span style="color:var(--muted);"># liveness check</span><br>
+            curl http://127.0.0.1:8741/health<br><br>
+            <span style="color:var(--muted);"># alert-triggered lookup</span><br>
+            curl -X POST http://127.0.0.1:8741/retrieve \<br>
+            &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+            &nbsp;&nbsp;-d '&#123;"alerts":[&#123;"metric_id":1,"metric_name":"HRV CV","value":0.38,"threshold":"hrv_cv > 0.3","band":"bad"&#125;],"top_k":5&#125;'<br><br>
+            <span style="color:var(--muted);"># semantic query</span><br>
+            curl -X POST http://127.0.0.1:8741/retrieve \<br>
+            &nbsp;&nbsp;-d '&#123;"query":"overtraining recovery week","top_k":5&#125;'
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- METRICS -->
+<section id="metrics">
+  <div class="container">
+    <div class="section-label">On-Device Models</div>
+    <h2 class="section-title">27 health metrics</h2>
+    <p class="section-desc">Every model runs entirely on-device. No server, no network dependency for analysis.</p>
+
+    <div class="metrics-grid fade-up">
+      <!-- Base 7 -->
+      <div class="metric-card tier-base">
+        <div class="metric-tier">Base · autonomic</div>
+        <div class="metric-name">Sleep Regularity Index</div>
+        <div class="metric-alert">14-day pairwise agreement matrix</div>
+      </div>
+      <div class="metric-card tier-base">
+        <div class="metric-tier">Base · autonomic</div>
+        <div class="metric-name">Autonomic Balance</div>
+        <div class="metric-alert">z(HRV) − z(RHR) composite</div>
+      </div>
+      <div class="metric-card tier-base">
+        <div class="metric-tier">Base · behavioral</div>
+        <div class="metric-name">Sedentary Stress</div>
+        <div class="metric-alert">HR &gt; RHR+20 AND steps &lt; 200/hr</div>
+      </div>
+      <div class="metric-card tier-base">
+        <div class="metric-tier">Base · cognitive</div>
+        <div class="metric-name">Cognitive Recovery Debt</div>
+        <div class="metric-alert">EWMA of (8h − actual sleep)</div>
+      </div>
+      <div class="metric-card tier-base">
+        <div class="metric-tier">Base · stress</div>
+        <div class="metric-name">Burnout CUSUM</div>
+        <div class="metric-alert">Page-Shewhart control chart on RHR</div>
+      </div>
+      <div class="metric-card tier-base">
+        <div class="metric-tier">Base · circadian</div>
+        <div class="metric-name">Circadian Drift</div>
+        <div class="metric-alert">Mann-Kendall trend on bedtimes</div>
+      </div>
+      <div class="metric-card tier-base">
+        <div class="metric-tier">Base · HRV</div>
+        <div class="metric-name">HRV Kalman-smoothed</div>
+        <div class="metric-alert">Local-level state-space smoother</div>
+      </div>
+
+      <!-- Tier 1 -->
+      <div class="metric-card tier-1">
+        <div class="metric-tier">Tier 1 · autonomic</div>
+        <div class="metric-name">RR Deviation ⚠️</div>
+        <div class="metric-alert">alert: &gt; 1.5 brpm</div>
+      </div>
+      <div class="metric-card tier-1">
+        <div class="metric-tier">Tier 1 · autonomic</div>
+        <div class="metric-name">Vagal Rebound</div>
+        <div class="metric-alert">alert: &lt; −5 ms</div>
+      </div>
+      <div class="metric-card tier-1">
+        <div class="metric-tier">Tier 1 · autonomic</div>
+        <div class="metric-name">RHR Trajectory</div>
+        <div class="metric-alert">alert: slope &gt; 0 bpm/day</div>
+      </div>
+      <div class="metric-card tier-1">
+        <div class="metric-tier">Tier 1 · autonomic</div>
+        <div class="metric-name">Morning HR Surge</div>
+        <div class="metric-alert">alert: &gt; 40 bpm</div>
+      </div>
+      <div class="metric-card tier-1">
+        <div class="metric-tier">Tier 1 · training</div>
+        <div class="metric-name">ACWR</div>
+        <div class="metric-alert">alert: &gt; 1.5 or &lt; 0.8</div>
+      </div>
+      <div class="metric-card tier-1">
+        <div class="metric-tier">Tier 1 · HRV</div>
+        <div class="metric-name">HRV Stability (CV)</div>
+        <div class="metric-alert">alert: &gt; 0.3</div>
+      </div>
+
+      <!-- Tier 2 -->
+      <div class="metric-card tier-2">
+        <div class="metric-tier">Tier 2 · sleep</div>
+        <div class="metric-name">Sleep Architecture Efficiency</div>
+        <div class="metric-alert">alert: &lt; 40%</div>
+      </div>
+      <div class="metric-card tier-2">
+        <div class="metric-tier">Tier 2 · sleep</div>
+        <div class="metric-name">WASO</div>
+        <div class="metric-alert">alert: &gt; 30 min</div>
+      </div>
+      <div class="metric-card tier-2">
+        <div class="metric-tier">Tier 2 · sleep</div>
+        <div class="metric-name">SOL Spike</div>
+        <div class="metric-alert">alert: z &gt; 2.0</div>
+      </div>
+      <div class="metric-card tier-2">
+        <div class="metric-tier">Tier 2 · circadian</div>
+        <div class="metric-name">Social Jetlag</div>
+        <div class="metric-alert">alert: &gt; 1 hour</div>
+      </div>
+
+      <!-- Tier 3 -->
+      <div class="metric-card tier-3">
+        <div class="metric-tier">Tier 3 · metabolic</div>
+        <div class="metric-name">SpO₂ Desaturation</div>
+        <div class="metric-alert">alert: &gt; 5/hr below 94%</div>
+      </div>
+      <div class="metric-card tier-3">
+        <div class="metric-tier">Tier 3 · environmental</div>
+        <div class="metric-name">Acoustic Load</div>
+        <div class="metric-alert">alert: &gt; 50 dB·h</div>
+      </div>
+      <div class="metric-card tier-3">
+        <div class="metric-tier">Tier 3 · environmental</div>
+        <div class="metric-name">Light Deficit</div>
+        <div class="metric-alert">alert: &gt; 120 min/3d</div>
+      </div>
+      <div class="metric-card tier-3">
+        <div class="metric-tier">Tier 3 · behavioral</div>
+        <div class="metric-name">Movement Rate (SFR)</div>
+        <div class="metric-alert">alert: &lt; 0.5</div>
+      </div>
+      <div class="metric-card tier-3">
+        <div class="metric-tier">Tier 3 · metabolic</div>
+        <div class="metric-name">Body Mass Volatility</div>
+        <div class="metric-alert">alert: &gt; 1.5 kg</div>
+      </div>
+      <div class="metric-card tier-3">
+        <div class="metric-tier">Tier 3 · fitness</div>
+        <div class="metric-name">VO₂max Trend</div>
+        <div class="metric-alert">alert: &lt; −0.05/day</div>
+      </div>
+      <div class="metric-card tier-3">
+        <div class="metric-tier">Tier 3 · stress</div>
+        <div class="metric-name">Burnout Velocity</div>
+        <div class="metric-alert">alert: slope &gt; 0 for 3+ days</div>
+      </div>
+
+      <!-- Tier 4 -->
+      <div class="metric-card tier-4">
+        <div class="metric-tier">Tier 4 · training</div>
+        <div class="metric-name">Training Monotony</div>
+        <div class="metric-alert">alert: &gt; 2.0</div>
+      </div>
+      <div class="metric-card tier-4">
+        <div class="metric-tier">Tier 4 · autonomic</div>
+        <div class="metric-name">Nocturnal HR Dip</div>
+        <div class="metric-alert">alert: &lt; 5%</div>
+      </div>
+      <div class="metric-card tier-4">
+        <div class="metric-tier">Tier 4 · behavioral</div>
+        <div class="metric-name">NEAT Proxy</div>
+        <div class="metric-alert">low on heavy training days</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PILOT PROTOCOL DEEP DIVE -->
+<section id="pilot">
+  <div class="container">
+    <div class="section-label">Infrastructure</div>
+    <h2 class="section-title">Why Pilot Protocol</h2>
+    <p class="section-desc">Every inter-component link uses Pilot. Here is why that matters.</p>
+
+    <div class="pilot-features">
+      <div class="pilot-feature fade-up">
+        <div class="pilot-feature-icon">🔐</div>
+        <h4>End-to-end encrypted</h4>
+        <p>Ed25519 identity per node. The iPhone, the homelab, Agent A and B all have cryptographic identities. No shared secret, no bearer token.</p>
+      </div>
+      <div class="pilot-feature fade-up">
+        <div class="pilot-feature-icon">🌐</div>
+        <h4>NAT traversal built-in</h4>
+        <p>No port forwarding. No VPN configuration. No homelab firewall rules. Pilot handles NAT traversal transparently — the tunnel works from any network.</p>
+      </div>
+      <div class="pilot-feature fade-up">
+        <div class="pilot-feature-icon">🔄</div>
+        <h4>Survive restarts independently</h4>
+        <p>Either agent can restart without the other noticing beyond a brief reconnect. The trust is persistent on disk. Sessions resume automatically.</p>
+      </div>
+      <div class="pilot-feature fade-up">
+        <div class="pilot-feature-icon">📦</div>
+        <h4>Embedded in the iOS app</h4>
+        <p>pilot-swift is a precompiled Go Pilot daemon distributed as a static xcframework. The iPhone is itself a first-class Pilot node — no separate hardware needed.</p>
+      </div>
+      <div class="pilot-feature fade-up">
+        <div class="pilot-feature-icon">🎯</div>
+        <h4>Delivery confirmation</h4>
+        <p>The HealthKit anchor only advances after an Ack lands back from Agent A. Pilot guarantees delivery notification — the iOS app knows exactly what was accepted.</p>
+      </div>
+      <div class="pilot-feature fade-up">
+        <div class="pilot-feature-icon">⚡</div>
+        <h4>No routing table</h4>
+        <p>No HTTP routing config, no internal DNS, no service mesh. Agents address each other by Pilot node ID. The overlay handles routing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="tech">
+  <div class="container">
+    <div class="section-label">Stack</div>
+    <h2 class="section-title">Technologies</h2>
+    <p class="section-desc">Deliberately minimal dependencies. Each technology earns its place.</p>
+
+    <div class="tech-grid fade-up">
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(59,130,246,0.1);">🦆</div>
+        <div>
+          <div class="tech-name">DuckDB</div>
+          <div class="tech-role">Health + GSuite warehousing</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(139,92,246,0.1);">🧠</div>
+        <div>
+          <div class="tech-name">G-Brain / PGLite</div>
+          <div class="tech-role">Shared semantic memory</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(16,185,129,0.1);">🍎</div>
+        <div>
+          <div class="tech-name">Swift / SwiftUI</div>
+          <div class="tech-role">iOS + watchOS + WidgetKit</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(59,130,246,0.1);">🐍</div>
+        <div>
+          <div class="tech-name">Python 3.12</div>
+          <div class="tech-role">Agents + retrieval server</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(16,185,129,0.1);">⚡</div>
+        <div>
+          <div class="tech-name">FastAPI</div>
+          <div class="tech-role">health-intelligence HTTP API</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(245,158,11,0.1);">🤖</div>
+        <div>
+          <div class="tech-name">Pydantic v2</div>
+          <div class="tech-role">Schema validation + rails</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(139,92,246,0.1);">🔢</div>
+        <div>
+          <div class="tech-name">sentence-transformers</div>
+          <div class="tech-role">all-MiniLM-L6-v2 embeddings</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(59,130,246,0.1);">📊</div>
+        <div>
+          <div class="tech-name">HealthKit</div>
+          <div class="tech-role">Anchored sample queries</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(16,185,129,0.1);">☁️</div>
+        <div>
+          <div class="tech-name">Google OAuth 2.0</div>
+          <div class="tech-role">Calendar · Drive · Gmail pull</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(245,158,11,0.1);">🧪</div>
+        <div>
+          <div class="tech-name">pytest</div>
+          <div class="tech-role">84 unit + E2E tests</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(59,130,246,0.1);">🔨</div>
+        <div>
+          <div class="tech-name">OpenClaw</div>
+          <div class="tech-role">Agent skill orchestrator</div>
+        </div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-logo" style="background:rgba(139,92,246,0.1);">🔒</div>
+        <div>
+          <div class="tech-name">Pilot Protocol</div>
+          <div class="tech-role">All inter-component comms</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DATA SOVEREIGNTY -->
+<section id="sovereignty">
+  <div class="container">
+    <div class="section-label">Security</div>
+    <h2 class="section-title">Data sovereignty</h2>
+    <p class="section-desc">The homelab box is the trusted root. Anything that lands on its disk is yours.</p>
+
+    <div class="sovereignty-row fade-up">
+      <div class="trust-chain">
+        <h3>Local data chain</h3>
+        <div class="trust-step">
+          <div class="trust-step-icon" style="background:rgba(59,130,246,0.1);">📱</div>
+          <div class="trust-step-text">
+            <div class="trust-step-title">iPhone collects</div>
+            <div class="trust-step-desc">HealthKit samples stay on device until Pilot envelope is confirmed delivered to Agent A.</div>
+          </div>
+        </div>
+        <div class="trust-step">
+          <div class="trust-step-icon" style="background:rgba(139,92,246,0.1);">🔐</div>
+          <div class="trust-step-text">
+            <div class="trust-step-title">Pilot transports</div>
+            <div class="trust-step-desc">E2E encrypted. Ed25519 identity per node. No data visible in transit — not even to the Pilot relay.</div>
+          </div>
+        </div>
+        <div class="trust-step">
+          <div class="trust-step-icon" style="background:rgba(16,185,129,0.1);">🏠</div>
+          <div class="trust-step-text">
+            <div class="trust-step-title">Agents warehouse locally</div>
+            <div class="trust-step-desc">DuckDB and G-Brain are files on the homelab. No cloud database, no managed service, no SaaS.</div>
+          </div>
+        </div>
+        <div class="trust-step">
+          <div class="trust-step-icon" style="background:rgba(245,158,11,0.1);">🧠</div>
+          <div class="trust-step-text">
+            <div class="trust-step-title">G-Brain is local PGLite</div>
+            <div class="trust-step-desc">Semantic memory lives in a local PGLite database. No external vector store.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="external-surfaces">
+        <h3>External surfaces</h3>
+        <p class="note">Three external services — all swappable. None see raw health data.</p>
+        <div class="external-item">
+          <div class="icon">☁️</div>
+          <div>
+            <div class="external-item-title">Google OAuth</div>
+            <div class="external-item-desc">Sees Calendar / Drive / Gmail metadata. Not health data. Incremental pull only.</div>
+          </div>
+        </div>
+        <div class="external-item">
+          <div class="icon">🔢</div>
+          <div>
+            <div class="external-item-title">ZeroEntropy (planned)</div>
+            <div class="external-item-desc">Will see intervention query text for reranking. Not health samples. API key in infra/.env.</div>
+          </div>
+        </div>
+        <div class="external-item">
+          <div class="icon">🤖</div>
+          <div>
+            <div class="external-item-title">LLM provider</div>
+            <div class="external-item-desc">Sees prompt summaries constructed from retrieved interventions. Provider is configurable.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span class="footer-logo">g-stack</span>
+  <div class="footer-links">
+    <a href="https://github.com/TeoSlayer/g-stack-hackathon" target="_blank">GitHub</a>
+    <a href="https://github.com/TeoSlayer/g-stack-hackathon/blob/main/README.md" target="_blank">README</a>
+    <a href="https://github.com/TeoSlayer/g-stack-hackathon/blob/main/LIFECYCLE.md" target="_blank">LIFECYCLE</a>
+  </div>
+  <span class="copy">AGPL-3.0-or-later · Personal data substrate</span>
+</footer>
+
+<script>
+  // Intersection observer for fade-up animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+  // Stagger children in grids
+  document.querySelectorAll('.principles-grid, .components-grid, .metrics-grid, .pilot-features, .tech-grid').forEach(grid => {
+    grid.querySelectorAll('.fade-up').forEach((child, i) => {
+      child.style.transitionDelay = `${i * 60}ms`;
+    });
+  });
+</script>
+
+</body>
+</html>
