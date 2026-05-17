@@ -16,6 +16,7 @@
 #   5. Register MCP servers
 #   6. Health-intelligence service
 #   7. Coach proactive watch
+#   8. Calendar sync (collector + coach gbrains, every 6h)
 #
 # Each step is idempotent and prints a section header so you can grep
 # the output for failures.
@@ -99,11 +100,20 @@ bash "$SCRIPTS/install-health-intelligence.sh"
 section "13. coach proactive watch"
 bash "$SCRIPTS/install-coach-watch.sh"
 
+section "14. calendar sync (collector + coach, every 6h)"
+# Skipped automatically if the OAuth token is missing — run once
+# interactively (see REDEPLOY_GCP.md step 7) before this step is useful.
+if [ -f "$REPO/infra/secrets/google-calendar-token.json" ]; then
+    bash "$SCRIPTS/install-calendar-sync.sh"
+else
+    echo "(skip) no google-calendar-token.json — re-OAuth then rerun this step manually"
+fi
+
 section "DONE — fast acceptance checks"
 echo "--- containers ---"
 docker ps --format '{{.Names}}: {{.Status}}'
 echo "--- services ---"
-systemctl --user --no-pager --type=service | grep -E 'openclaw|health-intel|coach-watch' || true
+systemctl --user --no-pager --type=service | grep -E 'openclaw|health-intel|coach-|calendar-' || true
 echo "--- HTTP smoke ---"
 curl -sS http://127.0.0.1:8741/health 2>/dev/null || echo "(health-intelligence not ready yet)"
 echo "--- next: re-OAuth Google Calendar via SSH tunnel; see REDEPLOY_GCP.md step 7"
