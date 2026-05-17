@@ -65,9 +65,9 @@ The iPhone is on its own Pilot identity. Trusted by Agent A.
 
 ### 2. Agent A — the Collector (the warehouse)
 
-Lives in `agent-a/collector/`. Its only job: **accept envelopes, dedupe,
-write to DuckDB, ack the sender, tell Agent B that new facts landed.**
-No LLM, no reasoning, no human-facing surface.
+Lives in `agent-a/collector/`. OpenClaw LLM agent. Core job: **accept envelopes, dedupe,
+write to DuckDB, ack the sender, tell the Coach that new facts landed.**
+No human-facing surface — it is queried only by the Coach via `send-message`.
 
 What runs concretely:
 
@@ -88,13 +88,16 @@ What runs concretely:
 - After every batch commit, `ChangeEventBroadcaster.emit` writes to a local
   event log AND fans out to subscribed Coach identities on port 1004.
 
-The Collector owns three Pilot ports of its **single identity**:
+All communication is via `pilotctl send-message`. The Collector classifies messages by content shape in `inbox_watcher.py`:
 
-| Port | Direction | Message |
+| Content shape | Direction | Message |
 |---|---|---|
-| 1001 | inbound  | Envelopes + RouteChunkEnvelopes from sources |
-| 1003 | inbound  | Queries from Coaches |
-| 1004 | outbound | ChangeEvents broadcast to Coaches |
+| `samples` array | inbound | Envelopes + RouteChunkEnvelopes from iPhone |
+| `sql` field | inbound | SQL queries from Coach |
+| `kind: "samples_added"` | outbound | ChangeEvents sent to Coach |
+| Ack JSON | outbound | Sent back to iPhone after each batch commit |
+
+Real Pilot built-in ports: 1001 (dataexchange/send-message), 7 (echo), 444 (handshake). No application-level port routing.
 
 ### 3. Agent B — the Coach (the front)
 
@@ -148,15 +151,9 @@ agent-b's responsibility):
                                   ────► QueryResult → reply_port ─►   LLM
 ```
 
-All three are **separate Pilot identities**, even when two of them run on
-the same homelab box. Identity isolation matters: the Collector is the
-only writer to DuckDB; the Coach is read-only over Pilot. The trust list
-on each identity is what enforces that.
+All three are **separate Pilot identities**. Identity isolation matters: the Collector is the only writer to DuckDB; the Coach is read-only via SQL queries. The trust list on each identity is what enforces that.
 
-The two homelab identities run in their own Docker containers (see
-`infra/docker/`) so each one has its own `~/.pilot/` socket. **No two
-Pilot daemons fight for one socket — that's the deal-breaker the
-docker isolation solves.**
+The two GCP identities run in their own Docker containers (see `infra/docker/`) so each has its own `~/.pilot/` socket. **No two Pilot daemons fight for one socket — that's what Docker isolation solves.**
 
 ### What the e2e test proves
 
@@ -176,77 +173,31 @@ The full pipeline is end-to-end correct. The Ack contract that breaks
 the iOS source under the old 5-min cron now lands well inside the 30 s
 budget.
 
-## What's left
+## Current status
 
-In priority order, sized so each is a few hours of work.
+Everything described above is deployed and operational on GCP.
 
-### Phase A — Pilot transport correctness
+### Done
 
-- [ ] **Real `pilot-daemon` Linux binary** in each container. Today the
-      Docker stack runs in "stub pilot" mode (shared inbox volume between
-      containers) so the e2e is provable without the binary. Production
-      needs the actual daemon to register with the registry/beacon.
-- [ ] **`PilotctlTransport` end-to-end test** against a real overlay.
-      Should send an Ack via `pilotctl send-message` and have a real
-      Pilot node receive it. The Coach's `PilotctlPilot` needs the same
-      treatment.
-- [ ] **Source identity allowlist enforcement.** The trust gate is in
-      code; the actual identity-to-label mapping (e.g. `ios.healthsync.calin`
-      → the Pilot node_id printed by `pilotctl info`) needs an
-      `infra/pilot/trust.json` file format and a config loader for it.
+- ✅ Real Pilot daemon binaries in each container (`infra/docker/pilot-bin/`)
+- ✅ `PilotctlTransport` end-to-end against real Pilot overlay
+- ✅ OpenClaw workspaces for both agents (`.openclaw/collector-workspace/`, `.openclaw/coach-workspace/`)
+- ✅ Telegram channel registered in Coach workspace
+- ✅ 7 rule models ported from `Models.swift` to Python (`agent-b/coach/`)
+- ✅ G-Brain integration — both agents have separate instances with wrapper scripts
+- ✅ Google Calendar OAuth + incremental sync (`calendar_sync.py`)
+- ✅ health-intelligence skill registered in both OpenClaw workspaces
+- ✅ Docker Compose deployment on GCP with persistent volumes
+- ✅ pilot-swift embedded in iOS app with PilotSyncTransport sending envelopes
+- ✅ iOS outbox + retry (SQLite-backed, crash-safe)
 
-### Phase B — Coach completes the loop
+### What's next
 
-- [ ] **OpenClaw skill manifest** for agent-b. The README sketches `skill.json`;
-      it needs the actual file plus the channel adapter wiring.
-- [ ] **Telegram channel registration.** Per `infra/README.md` step 3.
-      Needs `infra/.env.example`, `TELEGRAM_BOT_TOKEN` plumbing, and the
-      Telegram-side `/start` handshake.
-- [ ] **`query_collector` tool** wrapped for the LLM. The Coach client has
-      `.query(sql)` working; we need the OpenClaw tool descriptor + the
-      LLM prompt that explains the warehouse schema.
-- [ ] **Rule loop** — port `Models.swift` to Python. Seven rules:
-      sleep-regularity, autonomic-balance, sedentary-stress, cognitive-debt,
-      burnout-cusum, circadian-drift, kalman-hrv. Each reads DuckDB via
-      `coach.client.query`, computes a band, fires a Telegram nudge if
-      warn/bad and cooldown has elapsed.
-- [ ] **gbrain integration.** `gbrain_search` / `gbrain_write` as
-      tools. Cron a `gbrain import infra/data/brain/` after the Coach
-      rebuilds markdown (or use the gbrain MCP directly).
-- [ ] **`gstack_run` and `pilot_specialist` tools** — shell-out skill calls
-      and Pilot directory queries, both with the existing CLIs.
-
-### Phase C — Production deployment
-
-- [ ] **launchd / systemd units** at `infra/services/` per the spec.
-      Two services on the homelab: `g-stack-agent-a` and `g-stack-agent-b`
-      (Docker compose'd up, autostart on boot).
-- [ ] **`infra/scripts/backup.sh`** — pause agent-a, `COPY` DuckDB to
-      Parquet, snapshot gbrain, tar Pilot identity + trust, resume.
-- [ ] **`infra/scripts/healthcheck.sh`** — checks daemon, both skills,
-      DuckDB row movement in last hour, Pilot peer count, Telegram ping.
-- [ ] **iOS-side Pilot integration.** The HealthSync app currently
-      collects locally; the embedded Pilot piece is the next iOS task.
-      The Collector is ready to receive whenever the iOS source ships
-      the embedded `pilot-swift` SDK.
-
-### Phase D — Schema evolution
-
-- [ ] **v=2 envelope handling.** The version gate already accepts `v` and
-      `v-1`; when iOS bumps to `v=2`, write a migration script in
-      `agent-a/migrations/` and bump `CURRENT_VERSION`.
-- [ ] **Additional sources.** `calendar-sync/`, `bank-sync/`,
-      `music-sync/` join via their own Pilot identity → port 1001.
-      No Collector code change needed beyond adding their identities to
-      the source allowlist.
-
-### Phase E — Polish
-
-- [ ] **Observability counters surfaced on Telegram `/status`.**
-      `outbox.pending`, `outbox.lastAck`, `samples_total`, `events_today`.
-- [ ] **Route stream-mode upload.** The 1500-pt chunked datagram path
-      already works; future work moves >5k-pt routes onto Pilot streams
-      (`pilot.dial`) per the CHUNKING.md "Future" note.
+- [ ] **Google Drive + Gmail pull** in Coach — incremental changed-files feed, plain-text extraction
+- [ ] **G-Brain rollup from Collector** — write markdown summary of each batch to `gbrain-collector-home` after commit
+- [ ] **Source identity allowlist from config** — currently hardcoded in `trust.py`
+- [ ] **ZeroEntropy reranker** in health-intelligence — integration in progress
+- [ ] **v=2 envelope handling** — version gate is in place; migration script needed when iOS bumps
 
 ## Running it
 
@@ -281,10 +232,10 @@ assigned to actual openclaw agents (the actual collector and the coach)."*
 
 OpenClaw is the host. Each Python entry point becomes a skill:
 
-| OpenClaw agent | Python entry | Pilot ports |
+| OpenClaw agent | Python entry | Communication |
 |---|---|---|
-| `agent-a` | `python -m collector.server` | 1001, 1003 in; 1004 out |
-| `agent-b` | `python -m coach watch` + Telegram channel | watches 1004; 1003 out; reply_port in |
+| `agent-a` — Collector | `python -m collector.server` | Receives envelopes + SQL queries; sends Acks + ChangeEvents via `send-message` |
+| `agent-b` — Coach | `python -m coach watch` + Telegram channel | Receives ChangeEvents; sends SQL queries; answers on Telegram |
 
 The skill manifests (`agent-a/skill.json`, `agent-b/skill.json`) are the
 remaining bridge — they tell OpenClaw how to start each process, what

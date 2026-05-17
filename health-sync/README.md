@@ -1,7 +1,7 @@
 # HealthSync
 
 A personal-health agent loop you own end to end. Apple Watch and iPhone collect
-the data, your homelab analyses it, and you talk to it through Telegram. No
+the data, a GCP-hosted agent reasons over it, and you talk to it through Telegram. No
 SaaS in the middle, no vendor knows your HRV.
 
 ## Why this exists
@@ -74,18 +74,17 @@ The iOS app is functional on its own — every model, every chart, every widget
 reads HealthKit directly. The agent pipeline below is an *augmentation*, not a
 dependency.
 
-### Agent pipeline (in progress)
+### Agent pipeline
 
 | Component | Status |
 |---|---|
-| OpenClaw on the homelab | ✓ installed at `~/.openclaw` |
-| pilot-swift package | ✓ at `../pilot-swift`, working smoke tests |
-| Embedded Pilot in iOS | not yet — phase 1 |
-| Outbox + retry in iOS | not yet — phase 1 |
-| Collector OpenClaw skill (ingest + DuckDB) | not yet — phase 2 |
-| Coach OpenClaw skill (Telegram + tools) | not yet — phase 3 |
-| gbrain wired as Coach memory tool | not yet — phase 3 |
-| gstack invocation surface in Coach | not yet — phase 3 |
+| pilot-swift package | ✅ at `../pilot-swift`, smoke tests pass on Simulator |
+| Embedded Pilot in iOS (`PilotBoot`) | ✅ running — sends envelopes via `PilotSyncTransport` |
+| Outbox + retry in iOS (`OutboxStore`, `OutboxWorker`) | ✅ SQLite-backed, crash-safe |
+| Collector OpenClaw agent (ingest + DuckDB) | ✅ deployed on GCP — 84 tests, 8 E2E scenarios |
+| Coach OpenClaw agent (Telegram + 7 rule models) | ✅ deployed on GCP — calendar sync working |
+| G-Brain wired in both agents (separate instances) | ✅ `gbrain-collector-home` + `gbrain-coach-home` |
+| health-intelligence RAG skill (17 papers, 89 interventions) | ✅ running on GCP port 8741 |
 
 ## Why each substrate choice
 
@@ -106,12 +105,12 @@ dependency.
 3.  encode(sample) → JSON envelope with sample UUID, type, value, unit,
     ts, location? (from CoreLocation OR retroactively via Photos geotag)
 4.  envelope → LocalOutbox (SQLite, atomic write)
-5.  OutboxWorker: pilot.send(to: collectorAddr, port: 1001, data: envelope)
-6.  Collector skill ingests, dedupes by UUID, INSERT into DuckDB
-7.  Collector acks the envelope's UUID list back over Pilot
+5.  OutboxWorker: pilotctl send-message <collector-node-id> --data '<envelope-json>'
+6.  Collector inbox_watcher classifies by content shape, ingests, dedupes by UUID, INSERT into DuckDB
+7.  Collector sends Ack back to iPhone via send-message
 8.  iOS advances the HK anchor, drops envelope from outbox
-9.  Collector publishes "new facts" event over Pilot port 1004
-10. Coach's rule loop subscribes; on anomaly fires the relevant model
+9.  Collector sends ChangeEvent (kind: samples_added) to Coach via send-message
+10. Coach's rule loop receives ChangeEvent; queries Collector DuckDB via send-message; fires model
 11. Coach composes a Telegram message: facts from DuckDB,
     recall from gbrain, optionally invokes a gstack skill
 12. Coach writes the summary back to gbrain for tomorrow's recall
@@ -144,9 +143,9 @@ narration step.
 
 | Data | Lives where | Who can see it |
 |---|---|---|
-| Raw HK samples | iPhone, then DuckDB on homelab | you |
-| Locations (sync-time + photo-joined) | DuckDB | you |
-| Daily summaries / patterns | gbrain (PGLite) on homelab | you |
+| Raw HK samples | iPhone, then facts.duckdb in Docker volume on GCP | you |
+| Locations (sync-time + photo-joined) | facts.duckdb | you |
+| Daily summaries / patterns | G-Brain (PGLite) on GCP — two separate instances | you |
 | Your Telegram chat with Coach | Telegram servers | you + Telegram |
 | Coach's LLM context per turn | Wherever your OpenClaw is configured to call (local llama.cpp → nobody; hosted API → that vendor) | depends on LLM choice |
 
@@ -225,7 +224,7 @@ health-sync/
 
 ## What this is not
 
-- **Not a polished consumer product.** Setup is six steps and assumes a homelab.
+- **Not a polished consumer product.** Setup requires a GCP VM, Docker Compose, and Pilot trust approval.
 - **Not a medical device.** None of the inferences are clinically validated for
   your specific physiology; treat them as informed prompts to your own attention.
 - **Not a real-time monitor.** Pilot envelopes are async; insights are minute
@@ -233,25 +232,29 @@ health-sync/
 - **Not a wearable replacement.** Your Apple Watch still does the sensing. This
   is the layer that does something useful with the data afterwards.
 
-## Status & roadmap
+## Status
 
-Working today (iOS):
+### Working today (iOS)
 
 - HealthKit sync with paged anchored queries and recoverable outbox semantics
-- All seven on-device models, all four trend forecasts, the readiness score
+- 27 on-device models, trend forecasts, readiness score
 - Calendar grid, location heatmap, widgets, info sheets, splash
 - Photos-geotag join for retroactive location-tagged HRV/HR/RHR
+- pilot-swift embedded — `PilotSyncTransport` sending envelopes to Collector
+- Outbox + retry (SQLite-backed, crash-safe, HK anchor only advances after Ack)
 
-Next:
+### Working today (GCP agents)
 
-1. Embed pilot-swift in the iOS app + outbox via Pilot
-2. Collector skill on OpenClaw (Pilot listener + DuckDB)
-3. Coach skill on OpenClaw (Telegram + LLM + gbrain + gstack)
-4. Pro-active rule loop in Coach
-5. Conversation history surfaced back into gbrain for cross-session recall
+- Collector receiving envelopes, deduplicating, warehousing to `facts.duckdb`
+- Coach running 7 rule models on each ChangeEvent, answering on Telegram
+- Google Calendar OAuth + incremental sync imported into Coach G-Brain
+- health-intelligence RAG sidecar serving paper-backed interventions
 
-See [VISION.md] if/when it exists; this README is the current state of the
-art.
+### What's next
+
+- Google Drive + Gmail pull in Coach
+- G-Brain rollup from Collector after each batch commit
+- ZeroEntropy reranker in health-intelligence
 
 ---
 

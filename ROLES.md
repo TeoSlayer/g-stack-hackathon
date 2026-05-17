@@ -7,52 +7,45 @@ single source of truth for "who does what." When in doubt, defer here.
 
 |  | **Collector (agent-a)** | **Coach (agent-b)** |
 |---|---|---|
-| Tagline | the warehouse | the second-brain front-end |
-| Pilot node | `193232` (`g-stack-agent-a`, `0:0000.0002.F2D0`) | `193233` (`g-stack-agent-b`, `0:0000.0002.F2D1`) |
-| Container | `g-stack-agent-a` | `g-stack-agent-b` |
-| Pilot endpoint | `35.224.83.34:4001` | `35.224.83.34:4002` |
-| Owns DuckDB? | **Yes**, exclusive writer | No — read-only via Pilot |
-| Owns gbrain? | Its own at `gbrain-collector-home/` | Its own at `gbrain-coach-home/` |
-| LLM in the path? | Yes (claude-opus-4-7) for chat | Yes (claude-opus-4-7) for chat |
-| Talks to user? | **Yes** (you talk to Collector) | Background — only fires nudges and is queried by Collector |
-| Talks to iOS? | Yes (port 1001 envelopes) | No |
+| Tagline | the warehouse | the conversational front-end |
+| Container | `g-stack-agent-a` (port 4001/udp Pilot) | `g-stack-agent-b` (port 4002/udp Pilot) |
+| Owns DuckDB? | **Yes**, exclusive writer (`facts.duckdb` in Docker volume) | No — read-only via SQL query messages |
+| Owns G-Brain? | `gbrain-collector-home` — factual observations | `gbrain-coach-home` — interpretations, nudges |
+| LLM in the path? | Yes — OpenClaw agent (claude-opus-4-7) | Yes — OpenClaw agent (claude-opus-4-7) |
+| Talks to user? | No human-facing surface | **Yes** — Telegram via OpenClaw channel binding |
+| Talks to iOS? | Yes — receives envelopes, sends Acks back | No |
 | Receives BINARY envelopes? | **Yes** (zlib + base64 decoded by `inbox_watcher`) | No |
 
 ## Pilot wire
 
+All inter-node communication is one primitive: `pilotctl send-message <target-node-id> --data '<json>'`. The daemon delivers JSON to the target's `~/.pilot/inbox/` as a file. `inbox_watcher.py` classifies by **content shape**, not by port number.
+
 ```
    iPhone HealthSync          Collector (agent-a)             Coach (agent-b)
    ────────────────           ────────────────────            ────────────────
-                              port 1001 ← Envelope            
-                              port 1003 ← Query  ──────────── send Query
-                              port 1004 → ChangeEvent ──────► subscribe
-
-                              port (envelope.ack_port)
-                              ────────► Ack
+                              ← Envelope (samples array)
+                              ← Query (sql field)  ──────────── send-message
+                              → ChangeEvent (kind: samples_added) ──────────►
+                              → Ack (to iPhone)
 ```
 
-- **Source (iPhone) → Collector**: zlib-compressed JSON Envelope, base64 in
-  Pilot BINARY message, on port 1001. Collector dedupes by sample UUID,
-  writes to DuckDB, emits ChangeEvent.
-- **Collector ↔ Coach**: SQL request/reply over Pilot ports 1003 / dynamic
-  reply_port. The Coach has read-only access via the SQL gate (writes are
-  rejected).
-- **Coach ← ChangeEvent**: fire-and-forget broadcast from Collector after
-  each batch commit. Coach uses it as a "go look again" hint.
+- **iPhone → Collector**: zlib-compressed JSON Envelope (base64 BINARY format), classified by presence of `samples` array. Collector dedupes by UUID, writes to DuckDB, sends Ack back.
+- **Coach → Collector**: JSON with `sql` field. Collector's `sql_gate` executes read-only and sends `QueryResult` back. Correlated by `request_id`.
+- **Collector → Coach**: `{kind: "samples_added", ...}` after each batch commit. Coach classifies by `kind` field.
+
+Real Pilot built-in ports: 1001 (dataexchange/send-message), 7 (echo), 444 (handshake). The `reply_port: 1005` in query bodies is a correlation field, not a Pilot routing port.
 
 ## Collector — what it does
 
-1. Listens for Pilot Envelopes on port 1001 (handles JSON + BINARY).
+1. Polls `~/.pilot/inbox/` every 1 s; classifies messages by content shape.
 2. Decompresses BINARY envelopes (`base64.b64decode` → `zlib.decompress`).
 3. Validates against `agent-a/SCHEMA.md`.
-4. Dedupes per-UUID against DuckDB; rejected samples carry a reason.
-5. Sends an Ack to `envelope.ack_port` listing `accepted / duplicates / rejected`.
-6. Emits a `ChangeEvent` (`samples_added`) on port 1004 with the
-   per-type histogram.
+4. Dedupes per-UUID against `facts.duckdb`; rejected samples carry a reason.
+5. Sends an Ack back to the iPhone via `send-message` listing `accepted / duplicates / rejected`.
+6. Emits a `{kind: "samples_added"}` ChangeEvent to the Coach via `send-message`.
 7. Reassembles route chunks (workout GPS).
-8. Serves read-only SQL on port 1003 (the gate forbids writes).
-9. When a human talks to it: queries warehouse + its own gbrain, returns a
-   factual answer, can write observations to **its own** gbrain.
+8. Executes read-only SQL queries from the Coach (sql_gate forbids writes).
+9. OpenClaw LLM agent — can reason over its warehouse and write factual observations to its own G-Brain.
 
 ## Collector — what it does NOT do
 
@@ -64,11 +57,12 @@ single source of truth for "who does what." When in doubt, defer here.
 
 ## Coach — what it does
 
-1. Subscribes to ChangeEvents on port 1004.
-2. Runs the seven rule models against the warehouse via SQL queries.
-3. Composes one Telegram nudge per (rule × cooldown).
-4. Writes derived insights to **its own** gbrain.
-5. Calls Pilot specialists for external context (weather, transit, etc.).
+1. Polls Pilot inbox for `{kind: "samples_added"}` ChangeEvents.
+2. Runs 7 rule models against the Collector's DuckDB via SQL query messages.
+3. Composes one Telegram nudge per (rule × cooldown) via OpenClaw channel binding.
+4. Writes derived insights to **its own** G-Brain (`gbrain-coach-home`).
+5. Pulls Google Calendar via OAuth; imports daily markdown into G-Brain.
+6. Answers on-demand questions on Telegram — DuckDB + G-Brain recall + RAG evidence, ≤200 words.
 
 ## Coach — what it does NOT do
 
@@ -92,10 +86,9 @@ There is no mechanical enforcement (yet); it's an agent-instruction rule.
 
 ## How the user interacts
 
-- Default channel: `openclaw agent --agent collector --local --message …`
-  via the `claw` shell function in `~/.zshrc`.
-- For background work: the Coach runs `python -m coach watch` inside its
-  container, drains ChangeEvents, fires nudges.
+- **Telegram** is the only user-facing interface. The Coach answers on the Telegram channel registered in the OpenClaw workspace (`coach-workspace/`).
+- Proactive nudges fire from the Coach when a rule model triggers and cooldown has elapsed.
+- The Collector has no human-facing surface — it is queried only by the Coach via `send-message`.
 
 ## Why this split exists
 
