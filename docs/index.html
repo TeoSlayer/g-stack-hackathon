@@ -1,517 +1,874 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>g-stack — Personal Health Intelligence</title>
-  <style>
-    :root {
-      --bg: #080a0f;
-      --surface: #0f1117;
-      --surface2: #161b26;
-      --border: rgba(255,255,255,0.06);
-      --accent: #3b82f6;
-      --accent2: #8b5cf6;
-      --accent3: #10b981;
-      --accent4: #f59e0b;
-      --text: #dde3ee;
-      --muted: #4e5a72;
-      --dim: #8591a6;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>g-stack — Personal Health Intelligence</title>
+<meta name="description" content="Two OpenClaw agents, each with its own G-Brain, connected by Pilot Protocol. Talk to the Coach on Telegram.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+<script>
+  (function () {
+    try {
+      var stored = localStorage.getItem('gstack-theme');
+      var prefers = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      var theme = stored || prefers;
+      if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
+  })();
+</script>
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.65;
-      overflow-x: hidden;
-    }
+<style>
+:root {
+  --bg:        #0b0b0a;
+  --bg-2:      #111110;
+  --bg-deep:   #070706;
+  --ink:       #eceae3;
+  --ink-dim:   #8a8a83;
+  --ink-faint: #3a3a37;
+  --line:      #1d1d1b;
+  --line-2:    #26261f;
+  --accent:        oklch(0.88 0.22 125);
+  --accent-ink:    #0b0b0a;
+  --accent-dim:    oklch(0.88 0.22 125 / .15);
+  --accent-glow:   rgba(200,255,0,0.09);
+  --term-bg:       #060605;
 
-    /* ── NAV ── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 40px;
-      background: rgba(8,10,15,0.88);
-      backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-logo {
-      font-size: 1rem; font-weight: 700; letter-spacing: -0.02em;
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    .nav-links { display: flex; gap: 32px; }
-    .nav-links a {
-      color: var(--dim); font-size: 0.82rem; text-decoration: none;
-      letter-spacing: 0.01em; transition: color 0.2s;
-    }
-    .nav-links a:hover { color: var(--text); }
-    .nav-badge {
-      font-size: 0.72rem; font-weight: 600; padding: 3px 10px;
-      border-radius: 999px; border: 1px solid rgba(59,130,246,0.3);
-      color: var(--accent); background: rgba(59,130,246,0.08);
-    }
+  --serif: 'Instrument Serif', 'Times New Roman', serif;
+  --sans:  'Inter Tight', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --mono:  'JetBrains Mono', ui-monospace, Menlo, monospace;
 
-    /* ── SECTIONS ── */
-    section { padding: 100px 40px; max-width: 1100px; margin: 0 auto; }
-    .label {
-      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.14em;
-      text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
-    }
-    h2 {
-      font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800;
-      letter-spacing: -0.04em; line-height: 1.15; margin-bottom: 20px;
-    }
-    .lead {
-      font-size: 1.05rem; color: var(--dim); max-width: 680px; line-height: 1.75;
-      margin-bottom: 56px;
-    }
+  --wrap-max: 1200px;
+  color-scheme: dark;
+}
 
-    /* ── HERO ── */
-    .hero {
-      min-height: 100vh; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      text-align: center; padding: 120px 40px 80px;
-      position: relative; overflow: hidden;
-    }
-    .hero-glow {
-      position: absolute; width: 700px; height: 700px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%);
-      top: 50%; left: 50%; transform: translate(-50%, -50%);
-      pointer-events: none;
-    }
-    .hero-tag {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-size: 0.75rem; font-weight: 600; color: var(--accent);
-      border: 1px solid rgba(59,130,246,0.25); border-radius: 999px;
-      padding: 5px 14px; margin-bottom: 36px;
-      background: rgba(59,130,246,0.06);
-    }
-    .hero-tag span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
-    .hero h1 {
-      font-size: clamp(2.8rem, 7vw, 5.5rem); font-weight: 900;
-      letter-spacing: -0.05em; line-height: 1.05;
-      margin-bottom: 28px;
-    }
-    .grad { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #10b981 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .hero-sub {
-      font-size: 1.15rem; color: var(--dim); max-width: 600px;
-      margin: 0 auto 48px; line-height: 1.75;
-    }
-    .hero-pills { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 56px; }
-    .pill {
-      font-size: 0.75rem; padding: 5px 14px; border-radius: 999px;
-      border: 1px solid var(--border); color: var(--dim);
-      background: var(--surface);
-    }
-    .hero-scroll { color: var(--muted); font-size: 0.78rem; display: flex; align-items: center; gap: 8px; }
-    .hero-scroll svg { width: 16px; height: 16px; animation: bounce 2s infinite; }
-    @keyframes bounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(4px); } }
+[data-theme="light"] {
+  --bg:        #fafaf7;
+  --bg-2:      #f0efea;
+  --bg-deep:   #e9e8e2;
+  --ink:       #0b0b0a;
+  --ink-dim:   #5a5a54;
+  --ink-faint: #c7c6be;
+  --line:      #e6e5df;
+  --line-2:    #d8d7d0;
+  --accent:        oklch(0.72 0.19 125);
+  --accent-ink:    #0b0b0a;
+  --accent-dim:    oklch(0.72 0.19 125 / .14);
+  --accent-glow:   rgba(130,170,20,0.1);
+  --term-bg:       #0b0b0a;
+  color-scheme: light;
+}
 
-    /* ── PROBLEM BLOCK ── */
-    .problem-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px; margin-bottom: 0;
-    }
-    .problem-card {
-      border: 1px solid var(--border); border-radius: 16px;
-      padding: 28px; background: var(--surface);
-      transition: border-color 0.2s;
-    }
-    .problem-card:hover { border-color: rgba(255,255,255,0.12); }
-    .problem-icon { font-size: 1.4rem; margin-bottom: 14px; }
-    .problem-card h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.01em; }
-    .problem-card p { font-size: 0.85rem; color: var(--dim); line-height: 1.65; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { overflow-x: hidden; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  min-height: 100vh;
+}
+@media (max-width: 640px) { body { font-size: 15px; } }
 
-    /* ── INSIGHT BOX ── */
-    .insight {
-      border: 1px solid rgba(59,130,246,0.2);
-      border-radius: 20px; padding: 48px;
-      background: linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(139,92,246,0.05) 100%);
-      margin-top: 60px;
-    }
-    .insight-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
-    .insight h3 { font-size: clamp(1.3rem, 3vw, 2rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 16px; }
-    .insight p { font-size: 0.95rem; color: var(--dim); max-width: 640px; line-height: 1.75; }
-    .insight code { font-size: 0.85em; background: rgba(59,130,246,0.1); color: var(--accent); padding: 2px 6px; border-radius: 4px; }
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--accent); }
+::selection { background: var(--accent); color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.88em; }
 
-    /* ── AGENTS ── */
-    .agents-row {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 24px; margin-top: 48px;
-    }
-    .agent-card {
-      border: 1px solid var(--border); border-radius: 20px;
-      padding: 36px; background: var(--surface); position: relative; overflow: hidden;
-    }
-    .agent-card::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    }
-    .agent-a::before { background: linear-gradient(90deg, #3b82f6, transparent); }
-    .agent-b::before { background: linear-gradient(90deg, #8b5cf6, transparent); }
-    .agent-card-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
-    .agent-card h3 { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; }
-    .agent-card-desc { font-size: 0.85rem; color: var(--dim); line-height: 1.7; margin-bottom: 20px; }
-    .agent-what { font-size: 0.78rem; color: var(--muted); }
-    .agent-what strong { color: var(--dim); display: block; margin-bottom: 8px; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
-    .agent-what ul { list-style: none; }
-    .agent-what li { padding: 5px 0; display: flex; align-items: flex-start; gap: 8px; }
-    .agent-what li::before { content: '—'; color: var(--muted); flex-shrink: 0; }
+.wrap {
+  max-width: var(--wrap-max);
+  margin: 0 auto;
+  padding: 0 48px;
+  position: relative;
+}
+@media (max-width: 900px) { .wrap { padding: 0 28px; } }
+@media (max-width: 520px) { .wrap { padding: 0 20px; } }
 
-    /* ── CHANNEL DIAGRAM ── */
-    .channel-diagram {
-      border: 1px solid var(--border); border-radius: 20px;
-      padding: 40px; background: var(--surface); margin-top: 24px;
-      text-align: center;
-    }
-    .channel-nodes { display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap; }
-    .ch-node {
-      padding: 16px 24px; border-radius: 12px; font-size: 0.82rem; font-weight: 600;
-      border: 1px solid var(--border); background: var(--surface2);
-      white-space: nowrap;
-    }
-    .ch-node sub { font-size: 0.65rem; font-weight: 400; color: var(--muted); display: block; margin-top: 3px; }
-    .ch-arrow {
-      flex: 1; min-width: 40px; max-width: 120px;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-    }
-    .ch-arrow-line {
-      width: 100%; height: 1px;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      position: relative;
-    }
-    .ch-arrow-label { font-size: 0.65rem; color: var(--muted); white-space: nowrap; }
-    .ch-arrow-line::after {
-      content: ''; position: absolute; right: -1px; top: -3px;
-      border: 4px solid transparent; border-left-color: var(--accent2);
-    }
+/* ── NAV ── */
+.nav-top {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--line);
+}
+.nav-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 18px 0;
+}
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); }
+.brand:hover { color: var(--ink); }
+.brand-text {
+  font-family: var(--sans); font-weight: 600; font-size: 0.95rem;
+  letter-spacing: -0.01em; display: flex; flex-direction: column; line-height: 1.1;
+}
+.brand-tag {
+  font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-dim); font-weight: 500; margin-top: 2px;
+}
+.nav-links { display: flex; gap: 4px; align-items: center; }
+.nav-link {
+  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-dim);
+  padding: 8px 14px; transition: color 0.15s;
+}
+.nav-link:hover { color: var(--ink); }
+.nav-right { display: flex; gap: 10px; align-items: center; }
+.theme-toggle {
+  width: 36px; height: 36px; background: transparent;
+  border: 1px solid var(--line-2); color: var(--ink-dim);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--ink); }
+.theme-toggle svg { width: 16px; height: 16px; }
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+[data-theme="light"] .theme-toggle .icon-sun { display: block; }
+[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+@media (max-width: 768px) {
+  .nav-link { padding: 6px 10px; font-size: 0.64rem; }
+  .brand-tag { display: none; }
+  .nav-link[data-collapse] { display: none; }
+}
 
-    /* ── HOW IT WORKS ── */
-    .steps { display: flex; flex-direction: column; gap: 0; }
-    .step {
-      display: flex; gap: 28px; padding: 32px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .step:last-child { border-bottom: none; }
-    .step-num {
-      font-size: 0.7rem; font-weight: 700; color: var(--accent);
-      border: 1px solid rgba(59,130,246,0.25); border-radius: 999px;
-      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; margin-top: 3px; background: rgba(59,130,246,0.06);
-    }
-    .step-body h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em; }
-    .step-body p { font-size: 0.85rem; color: var(--dim); line-height: 1.7; }
-    .step-body code { font-size: 0.82em; background: var(--surface2); color: var(--dim); padding: 1px 6px; border-radius: 4px; }
+/* ── HERO ── */
+.hero {
+  padding: 96px 0 80px;
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+.hero::before {
+  content: '';
+  position: absolute; top: 30%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: 700px; height: 380px;
+  background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.eyebrow {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-dim); display: inline-flex; align-items: center;
+  gap: 10px; margin-bottom: 28px;
+}
+.eyebrow::before {
+  content: ''; width: 22px; height: 1px;
+  background: var(--ink-dim); display: inline-block;
+}
+.display {
+  font-family: var(--sans); font-weight: 500;
+  font-size: clamp(38px, 6.4vw, 78px);
+  line-height: 1.02; letter-spacing: -0.035em;
+  margin-bottom: 28px; max-width: 18ch;
+}
+.display em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+.display .accent { color: var(--accent); }
+.hero-sub {
+  font-size: 1.05rem; color: var(--ink-dim);
+  max-width: 54ch; margin-bottom: 40px; line-height: 1.6;
+}
+.hero-sub b { color: var(--ink); font-weight: 500; }
 
-    /* ── EXPAND SECTION ── */
-    .expand-box {
-      border: 1px solid rgba(16,185,129,0.2);
-      border-radius: 20px; padding: 48px;
-      background: linear-gradient(135deg, rgba(16,185,129,0.04) 0%, transparent 100%);
-    }
-    .expand-box h3 { font-size: clamp(1.2rem, 2.5vw, 1.7rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 14px; }
-    .expand-box p { font-size: 0.92rem; color: var(--dim); line-height: 1.75; max-width: 640px; margin-bottom: 28px; }
-    .expand-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
-    .expand-item {
-      padding: 18px 20px; border-radius: 12px; border: 1px solid var(--border);
-      background: var(--surface); font-size: 0.8rem;
-    }
-    .expand-item-title { font-weight: 700; margin-bottom: 4px; }
-    .expand-item-desc { color: var(--dim); line-height: 1.5; }
+.stats-row {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0; border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line); margin-bottom: 40px;
+}
+.stat { padding: 22px 24px; border-right: 1px solid var(--line); }
+.stat:last-child { border-right: 0; }
+.stat-num {
+  font-family: var(--sans); font-weight: 500;
+  font-size: clamp(24px, 2.8vw, 40px);
+  line-height: 1; letter-spacing: -0.02em;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.stat-num .accent { color: var(--accent); }
+.stat-label {
+  font-family: var(--mono); font-size: 0.62rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-dim); margin-top: 10px;
+}
+@media (max-width: 640px) {
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .stat:nth-child(2) { border-right: 0; }
+  .stat:nth-child(3) { border-right: 1px solid var(--line); border-top: 1px solid var(--line); }
+  .stat:nth-child(4) { border-top: 1px solid var(--line); border-right: 0; }
+}
 
-    /* ── TECH STRIP ── */
-    .tech-strip {
-      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
-      padding: 32px 0; border-top: 1px solid var(--border);
-    }
-    .tech-chip {
-      font-size: 0.75rem; padding: 5px 12px; border-radius: 6px;
-      border: 1px solid var(--border); color: var(--dim); background: var(--surface);
-    }
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 13px 20px; border: 1px solid var(--line-2);
+  background: transparent; color: var(--ink);
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn:hover { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); color: var(--accent-ink); }
 
-    /* ── FOOTER ── */
-    footer {
-      border-top: 1px solid var(--border); padding: 32px 40px;
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 16px;
-    }
-    .footer-logo { font-size: 0.9rem; font-weight: 700; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .footer-links { display: flex; gap: 24px; }
-    footer a { color: var(--muted); text-decoration: none; font-size: 0.8rem; transition: color 0.2s; }
-    footer a:hover { color: var(--text); }
-    footer .copy { font-size: 0.72rem; color: var(--muted); }
+/* ── SECTIONS ── */
+.section {
+  padding: 96px 0;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 900px) { .section { padding: 72px 0; } }
+@media (max-width: 640px) { .section { padding: 56px 0; } }
 
-    /* ── ANIMATIONS ── */
-    .fade-up { opacity: 0; transform: translateY(20px); transition: opacity 0.55s ease, transform 0.55s ease; }
-    .fade-up.visible { opacity: 1; transform: translateY(0); }
+.section-head {
+  display: grid; grid-template-columns: 160px 1fr;
+  gap: 48px; margin-bottom: 56px; align-items: start;
+}
+.section-head h2 {
+  font-family: var(--sans); font-weight: 500;
+  font-size: clamp(26px, 4vw, 52px);
+  line-height: 1.04; letter-spacing: -0.03em;
+  margin: 0; max-width: 24ch;
+}
+.section-head h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+.section-head h2 .accent { color: var(--accent); }
+.section-head p {
+  color: var(--ink-dim); font-size: 0.95rem;
+  line-height: 1.6; max-width: 52ch; margin-top: 16px;
+}
+@media (max-width: 900px) {
+  .section-head { grid-template-columns: 1fr; gap: 14px; margin-bottom: 36px; }
+}
 
-    /* ── RESPONSIVE ── */
-    @media (max-width: 640px) {
-      nav { padding: 12px 20px; }
-      .nav-links { display: none; }
-      section { padding: 70px 20px; }
-      .agents-row { grid-template-columns: 1fr; }
-      .insight { padding: 28px; }
-      footer { padding: 24px 20px; }
-    }
-  </style>
+/* ── PROBLEM GRID ── */
+.problem-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 0; border-top: 1px solid var(--line); border-left: 1px solid var(--line);
+}
+.problem-cell {
+  padding: 36px; border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line); transition: background 0.15s;
+}
+.problem-cell:hover { background: var(--bg-2); }
+.problem-label {
+  font-family: var(--mono); font-size: 0.62rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 12px;
+}
+.problem-cell h4 {
+  font-size: 1rem; font-weight: 500;
+  letter-spacing: -0.02em; margin-bottom: 10px; color: var(--ink);
+}
+.problem-cell p { font-size: 0.88rem; color: var(--ink-dim); line-height: 1.65; }
+@media (max-width: 640px) {
+  .problem-grid { grid-template-columns: 1fr; }
+}
+
+/* ── INSIGHT BANNER ── */
+.insight-banner {
+  margin-top: 40px;
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+}
+.insight-banner-left {
+  padding: 48px; border-right: 1px solid var(--line-2);
+}
+.insight-banner-right { padding: 48px; }
+.insight-kicker {
+  font-family: var(--mono); font-size: 0.62rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 14px;
+}
+.insight-banner h3 {
+  font-family: var(--sans); font-weight: 500;
+  font-size: clamp(1.2rem, 2.4vw, 1.8rem);
+  letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 14px;
+}
+.insight-banner h3 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+.insight-banner p { font-size: 0.88rem; color: var(--ink-dim); line-height: 1.7; }
+.insight-banner code {
+  background: var(--accent-dim); color: var(--accent); padding: 1px 5px;
+}
+.insight-terminal {
+  background: var(--term-bg); border: 1px solid var(--line);
+  padding: 20px 22px; margin-top: 20px; font-family: var(--mono);
+  font-size: 0.8rem; color: var(--accent); line-height: 2;
+}
+.term-comment { color: var(--ink-faint); }
+@media (max-width: 768px) {
+  .insight-banner { grid-template-columns: 1fr; }
+  .insight-banner-left { border-right: 0; border-bottom: 1px solid var(--line-2); }
+}
+
+/* ── AGENTS ── */
+.agents-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0; border-top: 1px solid var(--line); border-left: 1px solid var(--line);
+  margin-bottom: 40px;
+}
+.agent-cell {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 40px; transition: background 0.15s;
+}
+.agent-cell:hover { background: var(--bg-2); }
+.agent-label {
+  font-family: var(--mono); font-size: 0.62rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 14px;
+}
+.agent-cell h3 {
+  font-family: var(--sans); font-weight: 500;
+  font-size: 1.25rem; letter-spacing: -0.025em;
+  margin-bottom: 12px;
+}
+.agent-cell h3 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+.agent-desc {
+  font-size: 0.88rem; color: var(--ink-dim);
+  line-height: 1.65; margin-bottom: 28px;
+}
+.agent-owns {
+  font-family: var(--mono); font-size: 0.66rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 10px;
+}
+.agent-list { list-style: none; }
+.agent-list li {
+  font-size: 0.84rem; color: var(--ink-dim);
+  padding: 7px 0; border-top: 1px solid var(--line);
+  display: flex; gap: 10px; align-items: baseline;
+}
+.agent-list li::before { content: '→'; color: var(--accent); font-size: 0.8rem; flex-shrink: 0; }
+@media (max-width: 640px) {
+  .agents-grid { grid-template-columns: 1fr; }
+}
+
+/* ── CHANNEL DIAGRAM ── */
+.channel-block {
+  border: 1px solid var(--line); background: var(--bg-2);
+  padding: 36px; overflow-x: auto;
+}
+.channel-label {
+  font-family: var(--mono); font-size: 0.62rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 28px;
+}
+.channel-flow {
+  display: flex; align-items: center; gap: 0;
+  min-width: 600px;
+}
+.ch-node {
+  padding: 14px 20px; border: 1px solid var(--line-2);
+  background: var(--bg); font-size: 0.82rem; font-weight: 500;
+  white-space: nowrap; flex-shrink: 0;
+}
+.ch-node small {
+  display: block; font-family: var(--mono); font-size: 0.6rem;
+  letter-spacing: 0.08em; color: var(--ink-dim); margin-top: 4px;
+  text-transform: uppercase;
+}
+.ch-node.accent-node { border-color: var(--accent); }
+.ch-node.accent-node small { color: var(--accent); }
+.ch-pipe {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; padding: 0 4px;
+}
+.ch-pipe-line {
+  width: 100%; height: 1px; background: var(--line-2); position: relative;
+}
+.ch-pipe-line::after {
+  content: ''; position: absolute; right: -1px; top: -3px;
+  border: 4px solid transparent; border-left-color: var(--line-2);
+}
+.ch-pipe-label {
+  font-family: var(--mono); font-size: 0.6rem;
+  letter-spacing: 0.08em; color: var(--ink-faint); white-space: nowrap;
+}
+.channel-note {
+  font-family: var(--mono); font-size: 0.7rem;
+  color: var(--ink-faint); margin-top: 20px; line-height: 1.6;
+}
+.channel-note .accent { color: var(--accent); }
+
+/* ── HOW STEPS ── */
+.steps { border-top: 1px solid var(--line); }
+.step {
+  display: grid; grid-template-columns: 80px 1fr;
+  gap: 0; border-bottom: 1px solid var(--line);
+  transition: background 0.15s;
+}
+.step:hover { background: var(--bg-2); }
+.step-num-col {
+  padding: 32px 24px; border-right: 1px solid var(--line);
+  display: flex; align-items: flex-start; justify-content: center;
+}
+.step-num {
+  font-family: var(--mono); font-size: 0.7rem;
+  letter-spacing: 0.1em; color: var(--accent);
+}
+.step-body { padding: 32px 36px; }
+.step-body h4 {
+  font-size: 0.98rem; font-weight: 500;
+  letter-spacing: -0.015em; margin-bottom: 8px;
+}
+.step-body p { font-size: 0.86rem; color: var(--ink-dim); line-height: 1.7; }
+.step-body code {
+  background: var(--accent-dim); color: var(--accent); padding: 1px 5px;
+}
+@media (max-width: 640px) {
+  .step { grid-template-columns: 48px 1fr; }
+  .step-num-col { padding: 24px 12px; }
+  .step-body { padding: 24px 20px; }
+}
+
+/* ── EXPAND ── */
+.expand-banner {
+  border: 1px solid var(--line); background: var(--bg-2);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  margin-bottom: 40px;
+}
+.expand-banner-left {
+  padding: 56px; border-right: 1px solid var(--line);
+}
+.expand-banner-left h3 {
+  font-family: var(--sans); font-weight: 500;
+  font-size: clamp(1.2rem, 2.4vw, 1.8rem);
+  letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 16px;
+}
+.expand-banner-left h3 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+.expand-banner-left p {
+  font-size: 0.88rem; color: var(--ink-dim); line-height: 1.7; margin-bottom: 14px;
+}
+.expand-banner-left code { background: var(--accent-dim); color: var(--accent); padding: 1px 5px; }
+.expand-agents {
+  border-top: 1px solid var(--line); border-left: 1px solid var(--line);
+}
+.expand-agent {
+  padding: 24px; border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line); transition: background 0.15s;
+}
+.expand-agent:hover { background: var(--bg); }
+.expand-agent-name {
+  font-family: var(--sans); font-size: 0.9rem; font-weight: 500;
+  letter-spacing: -0.01em; margin-bottom: 6px;
+}
+.expand-agent-desc {
+  font-size: 0.8rem; color: var(--ink-dim); line-height: 1.55;
+}
+@media (max-width: 768px) {
+  .expand-banner { grid-template-columns: 1fr; }
+  .expand-banner-left { border-right: 0; border-bottom: 1px solid var(--line); padding: 36px 28px; }
+}
+
+/* ── TECH STRIP ── */
+.tech-strip {
+  border: 1px solid var(--line); border-top: 0;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0;
+}
+.tech-item {
+  padding: 14px 20px; border-right: 1px solid var(--line);
+  font-family: var(--mono); font-size: 0.68rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim);
+  white-space: nowrap;
+}
+.tech-item:last-child { border-right: 0; }
+
+/* ── FOOTER ── */
+footer {
+  padding: 48px 0 56px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-dim); font-size: 0.82rem;
+}
+.footer-row {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; flex-wrap: wrap; gap: 20px;
+}
+.footer-brand {
+  font-family: var(--mono); font-size: 0.7rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.footer-brand a { color: var(--ink); }
+.footer-brand a:hover { color: var(--accent); }
+.footer-links {
+  display: flex; flex-wrap: wrap; gap: 6px 24px;
+  font-family: var(--mono); font-size: 0.68rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+.footer-links a { color: var(--ink-dim); }
+.footer-links a:hover { color: var(--ink); }
+.footer-tag {
+  color: var(--ink-faint); margin-top: 14px;
+  font-style: italic; font-family: var(--serif); font-size: 0.95rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
 </head>
 <body>
 
 <!-- NAV -->
-<nav>
-  <span class="nav-logo">g-stack</span>
-  <div class="nav-links">
-    <a href="#problem">Problem</a>
-    <a href="#solution">Solution</a>
-    <a href="#agents">Agents</a>
-    <a href="#how">How it works</a>
-    <a href="#expand">Expand</a>
-    <a href="https://github.com/TeoSlayer/g-stack-hackathon" target="_blank">GitHub</a>
+<nav class="nav-top">
+  <div class="wrap">
+    <div class="nav-row">
+      <a href="#" class="brand">
+        <span class="brand-text">g-stack<small class="brand-tag">Health Intelligence</small></span>
+      </a>
+      <div class="nav-links">
+        <a class="nav-link" href="#problem">Problem</a>
+        <a class="nav-link" href="#agents">Agents</a>
+        <a class="nav-link" data-collapse href="#how">How it works</a>
+        <a class="nav-link" href="#expand">Expand</a>
+        <a class="nav-link" href="https://github.com/TeoSlayer/g-stack-hackathon">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme" type="button">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4.2"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
   </div>
-  <span class="nav-badge">YC Hackathon</span>
 </nav>
 
 <!-- HERO -->
-<div class="hero">
-  <div class="hero-glow"></div>
-  <div class="hero-tag"><span></span> Personal Health Intelligence</div>
-  <h1><span class="grad">Your health data,<br>finally useful.</span></h1>
-  <p class="hero-sub">Getting data out of Apple Health is a nightmare. We fixed that — and built a full reasoning layer on top of it.</p>
-  <div class="hero-pills">
-    <span class="pill">iPhone + Apple Watch</span>
-    <span class="pill">No shortcuts. No third parties.</span>
-    <span class="pill">Two OpenClaw agents</span>
-    <span class="pill">Talk to it on Telegram</span>
-    <span class="pill">27 on-device models</span>
-    <span class="pill">Pilot Protocol</span>
-  </div>
-  <div class="hero-scroll">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M12 5v14M5 12l7 7 7-7"/>
-    </svg>
-    Scroll
-  </div>
-</div>
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">YC Hackathon 2025 · Personal data substrate</div>
+    <h1 class="display">
+      Your health data,<br>
+      finally <em>useful</em>.<br>
+      <span class="accent">No middlemen.</span>
+    </h1>
+    <p class="hero-sub">
+      Getting data out of Apple Health is a nightmare of shortcuts and third-party collectors.
+      We compiled a <b>Go daemon into the iOS app</b> and stream directly to an agent.
+      Two G-Brains. One channel. Talk to it on <b>Telegram</b>.
+    </p>
 
-<!-- PROBLEM -->
-<section id="problem">
-  <div class="label">The problem</div>
-  <h2>Apple Health is a silo.</h2>
-  <p class="lead">Your watch knows more about your body than any doctor. Getting that data out — and doing something smart with it — is an unsolved engineering problem.</p>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-num"><span class="accent">2</span></div>
+        <div class="stat-label">OpenClaw agents</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">27</div>
+        <div class="stat-label">On-device models</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">17</div>
+        <div class="stat-label">Research papers</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">1<span style="font-size:0.55em; color:var(--ink-dim); letter-spacing:0"> primitive</span></div>
+        <div class="stat-label">send-message</div>
+      </div>
+    </div>
 
-  <div class="problem-grid">
-    <div class="problem-card fade-up">
-      <div class="problem-icon">🔒</div>
-      <h4>Export is broken by design</h4>
-      <p>Apple lets you export a ZIP. The XML inside is 500 MB, unstructured, and missing half your workout data. Shortcuts can drip samples one-by-one, but there's no streaming API.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="https://github.com/TeoSlayer/g-stack-hackathon">View source →</a>
+      <a class="btn" href="#problem">See the problem</a>
     </div>
-    <div class="problem-card fade-up">
-      <div class="problem-icon">🔌</div>
-      <h4>Third-party collectors are a privacy risk</h4>
-      <p>Every "sync to Google Sheets" app is a new data custodian. Your HRV, sleep stages, and resting heart rate end up on someone else's server, often unencrypted.</p>
-    </div>
-    <div class="problem-card fade-up">
-      <div class="problem-icon">🧩</div>
-      <h4>The wiring problem</h4>
-      <p>Even if you get the data out, you still need a receiver, a transformer, a store, a query layer, and something to reason over it. Most people stop at the export.</p>
-    </div>
-    <div class="problem-card fade-up">
-      <div class="problem-icon">💬</div>
-      <h4>No conversational interface</h4>
-      <p>Charts are fine. But "should I train hard today?" requires context: HRV trend, last night's sleep, what you have on your calendar. No app cross-references all of that.</p>
-    </div>
-  </div>
-
-  <div class="insight fade-up">
-    <div class="insight-label">The insight</div>
-    <h3>Compile a Pilot daemon into the iOS app. Make the iPhone a network node.</h3>
-    <p>Instead of exporting data out of the phone, we run a Go network daemon — <strong>pilot-swift</strong> — inside the iOS app sandbox. The iPhone becomes a first-class node on an encrypted overlay network. Health samples are pushed directly to an agent with no HTTP server, no port forwarding, no third party in the middle. The tunnel is E2E encrypted and NAT-traversed. It just works.</p>
   </div>
 </section>
 
-<!-- SOLUTION -->
-<section id="solution">
-  <div class="label">The solution</div>
-  <h2>Two agents. Each owns its data.</h2>
-  <p class="lead">We built two OpenClaw agents — each with its own memory, its own G-Brain, and a single shared communication channel. They talk through Pilot Protocol. You talk to them on Telegram.</p>
-
-  <div class="agents-row fade-up">
-    <div class="agent-card agent-a">
-      <div class="agent-card-label">Agent A · Collector</div>
-      <h3>Retains your health data</h3>
-      <p class="agent-card-desc">Receives HealthKit envelopes from the iPhone, deduplicates by sample UUID, and writes to a DuckDB warehouse. Answers SQL queries from the Coach. Its G-Brain holds what actually happened — factual observations, no interpretation.</p>
-      <div class="agent-what">
-        <strong>Owns</strong>
-        <ul>
-          <li>facts.duckdb — every sample ever received</li>
-          <li>gbrain-collector-home — factual memory</li>
-          <li>Ack logic — the iPhone only advances its cursor after confirmation</li>
-          <li>84 unit tests, 8 E2E scenarios</li>
-        </ul>
+<!-- PROBLEM -->
+<section class="section" id="problem">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">The problem</div>
+      <div>
+        <h2>Apple Health is a <em>silo</em>.</h2>
+        <p>Your watch knows more about your body than any doctor. Getting that data out — and doing something intelligent with it — is an unsolved engineering problem.</p>
       </div>
     </div>
-    <div class="agent-card agent-b">
-      <div class="agent-card-label">Agent B · Coach</div>
-      <h3>Retains what you did</h3>
-      <p class="agent-card-desc">Monitors health events, runs 7 rule models, pulls your Google Calendar, and reasons over all of it. Sends you proactive nudges on Telegram when something needs your attention. Answers questions with paper-backed evidence.</p>
-      <div class="agent-what">
-        <strong>Owns</strong>
-        <ul>
+
+    <div class="problem-grid">
+      <div class="problem-cell">
+        <div class="problem-label">01 · Export</div>
+        <h4>Export is broken by design</h4>
+        <p>Apple lets you export a ZIP. The XML inside is 500 MB, unstructured, and missing workout metadata. Shortcuts can drip samples one-by-one but there is no streaming API and no way to push data anywhere reliably.</p>
+      </div>
+      <div class="problem-cell">
+        <div class="problem-label">02 · Privacy</div>
+        <h4>Third-party collectors are a risk</h4>
+        <p>Every "sync to Google Sheets" app is a new data custodian. Your HRV, sleep stages, and resting heart rate end up on someone else's server, often unencrypted, with terms that can change.</p>
+      </div>
+      <div class="problem-cell">
+        <div class="problem-label">03 · Infrastructure</div>
+        <h4>The wiring problem</h4>
+        <p>Even if you get the data out, you still need a receiver, a transformer, a store, a query layer, and something to reason over it. Most people stop at the export. The wiring is the hard part.</p>
+      </div>
+      <div class="problem-cell">
+        <div class="problem-label">04 · Context</div>
+        <h4>No conversational interface</h4>
+        <p>Charts show what happened. But "should I train hard today?" requires HRV trend, sleep quality, and your calendar for the week — cross-referenced. No consumer app does this. Ours does.</p>
+      </div>
+    </div>
+
+    <div class="insight-banner">
+      <div class="insight-banner-left">
+        <div class="insight-kicker">The insight</div>
+        <h3>Compile a Pilot daemon into iOS.<br>Make the <em>phone a network node</em>.</h3>
+        <p>Instead of exporting data out of the phone, we run a Go network daemon — <code>pilot-swift</code> — inside the iOS app sandbox. The iPhone becomes a first-class node on an encrypted overlay network.</p>
+        <p>Health samples are pushed directly to an agent via <code>pilotctl send-message</code>. No HTTP server, no port forwarding, no third party in the middle. E2E encrypted, NAT-traversed. It just works from any network.</p>
+      </div>
+      <div class="insight-banner-right">
+        <div class="insight-kicker">Wire format</div>
+        <div class="insight-terminal">
+<span class="term-comment"># iPhone → Collector, E2E encrypted</span>
+pilotctl send-message &lt;collector-id&gt; \
+  --data '{"samples": [...], "batch_id": "..."}'
+
+<span class="term-comment"># Collector acks back to iPhone</span>
+pilotctl send-message &lt;iphone-id&gt; \
+  --data '{"accepted": [...], "duplicates": [...]}'
+
+<span class="term-comment"># Collector notifies Coach</span>
+pilotctl send-message &lt;coach-id&gt; \
+  --data '{"kind": "samples_added", ...}'
+        </div>
+        <p style="font-size:0.78rem; color:var(--ink-dim); margin-top:14px; font-family:var(--mono); font-size:0.66rem; letter-spacing:0.08em;">One primitive. Classification by content shape, not port number.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AGENTS -->
+<section class="section" id="agents">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">The solution</div>
+      <div>
+        <h2>Two agents.<br><em>Each owns</em> its data.</h2>
+        <p>Each agent has its own OpenClaw workspace, its own Pilot identity, its own G-Brain, and its own Docker container. They coordinate only via <code>send-message</code>.</p>
+      </div>
+    </div>
+
+    <div class="agents-grid">
+      <div class="agent-cell">
+        <div class="agent-label">Agent A · Collector</div>
+        <h3>Retains your <em>health data</em></h3>
+        <p class="agent-desc">Receives HealthKit envelopes from the iPhone, deduplicates by sample UUID, and writes to a DuckDB warehouse. Answers SQL queries from the Coach. Its G-Brain holds factual observations — what HealthKit reported, when, raw counts. No interpretation.</p>
+        <div class="agent-owns">Owns</div>
+        <ul class="agent-list">
+          <li>facts.duckdb — every sample ever ingested</li>
+          <li>gbrain-collector-home — factual memory</li>
+          <li>Ack logic — iPhone cursor advances only on confirmation</li>
+          <li>84 unit tests · 8 E2E scenarios passing</li>
+        </ul>
+      </div>
+      <div class="agent-cell">
+        <div class="agent-label">Agent B · Coach</div>
+        <h3>Retains what <em>you did</em></h3>
+        <p class="agent-desc">Monitors health events via 7 rule models, pulls your Google Calendar, and reasons over all of it. Sends proactive nudges on Telegram when a rule fires. Answers questions with paper-backed evidence from 17 peer-reviewed studies.</p>
+        <div class="agent-owns">Owns</div>
+        <ul class="agent-list">
           <li>gbrain-coach-home — interpretive memory, prior nudges</li>
           <li>Calendar context — daily markdown via Google OAuth</li>
-          <li>7 rule models — HRV, burnout, sleep, circadian drift, and more</li>
+          <li>7 rule models — HRV, burnout, sleep, circadian drift</li>
           <li>Telegram interface via OpenClaw channel binding</li>
         </ul>
       </div>
     </div>
-  </div>
 
-  <div class="channel-diagram fade-up">
-    <div style="font-size:0.72rem; color:var(--muted); margin-bottom:24px; letter-spacing:0.06em; text-transform:uppercase;">Communication channel</div>
-    <div class="channel-nodes">
-      <div class="ch-node">📱 iPhone<sub>pilot-swift node</sub></div>
-      <div class="ch-arrow">
-        <div class="ch-arrow-line"></div>
-        <div class="ch-arrow-label">send-message</div>
+    <div class="channel-block">
+      <div class="channel-label">Communication channel — one primitive, content-based routing</div>
+      <div class="channel-flow">
+        <div class="ch-node">📱 iPhone<small>pilot-swift node</small></div>
+        <div class="ch-pipe">
+          <div class="ch-pipe-line"></div>
+          <div class="ch-pipe-label">send-message</div>
+        </div>
+        <div class="ch-node accent-node">Collector<small>inbox_watcher</small></div>
+        <div class="ch-pipe">
+          <div class="ch-pipe-line"></div>
+          <div class="ch-pipe-label">ChangeEvent / SQL</div>
+        </div>
+        <div class="ch-node accent-node">Coach<small>7 rule models</small></div>
+        <div class="ch-pipe">
+          <div class="ch-pipe-line"></div>
+          <div class="ch-pipe-label">OpenClaw</div>
+        </div>
+        <div class="ch-node">💬 Telegram<small>you</small></div>
       </div>
-      <div class="ch-node" style="border-color:rgba(59,130,246,0.3); color:#93c5fd;">Collector<sub>inbox_watcher</sub></div>
-      <div class="ch-arrow">
-        <div class="ch-arrow-line"></div>
-        <div class="ch-arrow-label">ChangeEvent / SQL</div>
+      <div class="channel-note">
+        Real Pilot built-in services: dataexchange <span class="accent">1001</span> (send-message), echo <span class="accent">7</span>, handshake <span class="accent">444</span>. No application-level port routing — messages are classified by JSON content shape.
       </div>
-      <div class="ch-node" style="border-color:rgba(139,92,246,0.3); color:#c4b5fd;">Coach<sub>7 rule models</sub></div>
-      <div class="ch-arrow">
-        <div class="ch-arrow-line"></div>
-        <div class="ch-arrow-label">OpenClaw</div>
-      </div>
-      <div class="ch-node">💬 Telegram<sub>you</sub></div>
     </div>
-    <p style="font-size:0.75rem; color:var(--muted); margin-top:20px;">One primitive: <code style="background:var(--surface2); padding:1px 6px; border-radius:4px; font-size:0.8em;">pilotctl send-message &lt;node-id&gt; --data '&lt;json&gt;'</code> · E2E encrypted · NAT-traversed · no port forwarding</p>
   </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section id="how">
-  <div class="label">How it works</div>
-  <h2>From wrist to answer.</h2>
-  <p class="lead">Every step is traceable. No magic, no cloud middleware.</p>
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">How it works</div>
+      <div>
+        <h2>From wrist to <em>answer</em>.</h2>
+        <p>Every step is traceable. No cloud middleware, no magic.</p>
+      </div>
+    </div>
 
-  <div class="steps">
-    <div class="step fade-up">
-      <div class="step-num">1</div>
-      <div class="step-body">
-        <h4>Apple Watch samples HealthKit (27 on-device models)</h4>
-        <p>Anchored queries capture every sample exactly once — HRV, sleep stages, resting heart rate, SpO₂, training load, and 22 more. 27 on-device models compute composites like burnout CUSUM and circadian drift. No server dependency for analysis.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num-col"><span class="step-num">01</span></div>
+        <div class="step-body">
+          <h4>Apple Watch samples HealthKit — 27 on-device models run</h4>
+          <p>Anchored queries capture every sample exactly once — HRV, sleep stages, resting heart rate, SpO₂, training load, and more. 27 on-device models compute composites like burnout CUSUM, circadian drift, and autonomic balance. No server dependency for analysis.</p>
+        </div>
       </div>
-    </div>
-    <div class="step fade-up">
-      <div class="step-num">2</div>
-      <div class="step-body">
-        <h4>pilot-swift packages and sends the envelope</h4>
-        <p>The embedded Go daemon calls <code>pilotctl send-message &lt;collector-node-id&gt; --data '&lt;json&gt;'</code>. The envelope carries a batch UUID, sample UUIDs, and raw values. The tunnel is E2E encrypted — no data visible to any relay.</p>
+      <div class="step">
+        <div class="step-num-col"><span class="step-num">02</span></div>
+        <div class="step-body">
+          <h4>pilot-swift packages and sends the envelope</h4>
+          <p>The embedded Go daemon calls <code>pilotctl send-message &lt;collector-id&gt; --data '...'</code>. The envelope carries a batch UUID, sample UUIDs, and raw values. E2E encrypted tunnel — no data is visible to any relay, including the Pilot overlay itself.</p>
+        </div>
       </div>
-    </div>
-    <div class="step fade-up">
-      <div class="step-num">3</div>
-      <div class="step-body">
-        <h4>Collector receives, deduplicates, confirms</h4>
-        <p>The JSON lands in the Collector's Pilot inbox. <code>inbox_watcher.py</code> classifies by content shape — a message with a <code>samples</code> array goes to the ingest path. <code>INSERT OR IGNORE</code> on UUID deduplicates. An Ack is sent back to the iPhone; only then does it advance the HealthKit cursor. Crash-safe by design.</p>
+      <div class="step">
+        <div class="step-num-col"><span class="step-num">03</span></div>
+        <div class="step-body">
+          <h4>Collector receives, deduplicates, confirms</h4>
+          <p>The JSON lands in the Collector's Pilot inbox as a file. <code>inbox_watcher.py</code> classifies by content shape — a message with a <code>samples</code> array goes to the ingest path. <code>INSERT OR IGNORE</code> on UUID deduplicates. An Ack is sent back; only then does the iPhone advance its HealthKit cursor. Crash-safe by design.</p>
+        </div>
       </div>
-    </div>
-    <div class="step fade-up">
-      <div class="step-num">4</div>
-      <div class="step-body">
-        <h4>Collector notifies Coach via ChangeEvent</h4>
-        <p>After each batch commit, a <code>&#123;kind: "samples_added"&#125;</code> message is sent to the Coach's inbox. Same channel, different content shape. No pub/sub infrastructure — just <code>send-message</code>.</p>
+      <div class="step">
+        <div class="step-num-col"><span class="step-num">04</span></div>
+        <div class="step-body">
+          <h4>Collector notifies Coach via ChangeEvent</h4>
+          <p>After each batch commit, <code>&#123;kind: "samples_added"&#125;</code> is sent to the Coach's inbox. Same primitive — <code>send-message</code> — different content shape. The Coach classifies it by the <code>kind</code> field. No pub/sub, no message broker.</p>
+        </div>
       </div>
-    </div>
-    <div class="step fade-up">
-      <div class="step-num">5</div>
-      <div class="step-body">
-        <h4>Coach runs 7 rule models; queries the Collector's DuckDB</h4>
-        <p>On each ChangeEvent, the Coach sends a SQL query message to the Collector. The Collector executes it read-only and replies with a QueryResult. The Coach correlates replies by <code>request_id</code>. If a rule fires — HRV below baseline, burnout CUSUM crossing a threshold, circadian drift — and cooldown has elapsed, a Telegram nudge goes out.</p>
+      <div class="step">
+        <div class="step-num-col"><span class="step-num">05</span></div>
+        <div class="step-body">
+          <h4>Coach runs 7 rule models; queries Collector's DuckDB</h4>
+          <p>On each ChangeEvent, the Coach sends a SQL query message to the Collector. The Collector executes it read-only and replies with a QueryResult, correlated by <code>request_id</code>. If a rule fires — HRV below baseline, burnout CUSUM crossing a threshold, circadian drift detected — and cooldown has elapsed, a Telegram nudge goes out.</p>
+        </div>
       </div>
-    </div>
-    <div class="step fade-up">
-      <div class="step-num">6</div>
-      <div class="step-body">
-        <h4>You ask a question on Telegram. The Coach answers.</h4>
-        <p>The Coach combines a DuckDB query, G-Brain recall, and health-intelligence RAG — 17 peer-reviewed papers, 89 interventions — to answer in ≤200 words with inline citations. Calendar context from Google OAuth is already in its G-Brain, so "HRV dropped during my heavy meeting week" is answerable without you explaining the context.</p>
+      <div class="step">
+        <div class="step-num-col"><span class="step-num">06</span></div>
+        <div class="step-body">
+          <h4>You ask on Telegram. The Coach answers with evidence.</h4>
+          <p>The Coach combines a DuckDB query, G-Brain recall, and health-intelligence RAG — 17 peer-reviewed papers, 89 interventions — to answer in ≤200 words with inline citations. Calendar context from Google OAuth is already in its G-Brain, so "HRV dropped during my heavy meeting week" is answerable without you explaining anything.</p>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- EXPAND -->
-<section id="expand">
-  <div class="label">The bigger idea</div>
-
-  <div class="expand-box fade-up">
-    <h3>Add another agent. Share its node ID. Done.</h3>
-    <p>Each agent is a fully independent unit — its own OpenClaw workspace, its own Pilot identity, its own G-Brain, its own Docker container. They don't share a database or a network socket. The only thing they share is the ability to call <code>send-message</code> to each other's node ID.</p>
-    <p style="margin-top: 0; margin-bottom: 28px;">G-Brains can communicate without a lot of shared priors — they converge on meaning through message exchange. The more agents you add, the more data they pool, the better they reason. This is the architecture: distributed data, distributed compute, federated via Pilot.</p>
-    <div class="expand-grid">
-      <div class="expand-item">
-        <div class="expand-item-title">Sleep Coach</div>
-        <div class="expand-item-desc">New G-Brain. Subscribes to sleep ChangeEvents. Pilot node ID shared with Coach.</div>
-      </div>
-      <div class="expand-item">
-        <div class="expand-item-title">Training Load Agent</div>
-        <div class="expand-item-desc">Queries Collector directly. Maintains its own ACWR + monotony state in G-Brain.</div>
-      </div>
-      <div class="expand-item">
-        <div class="expand-item-title">Calendar Reasoner</div>
-        <div class="expand-item-desc">Pulls Google Calendar. Correlates meeting density with HRV by querying Collector.</div>
-      </div>
-      <div class="expand-item">
-        <div class="expand-item-title">Family Health Node</div>
-        <div class="expand-item-desc">Separate device, separate Pilot identity. Approve the handshake and it's in the network.</div>
+<section class="section" id="expand">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">The bigger idea</div>
+      <div>
+        <h2>Distributed data.<br><em>Distributed</em> compute.</h2>
+        <p>Each agent is a fully independent unit. To add another — just share its Pilot node ID. The network grows without central coordination.</p>
       </div>
     </div>
-  </div>
 
-  <div class="tech-strip">
-    <span style="font-size:0.72rem; color:var(--muted); margin-right:8px;">Built with</span>
-    <span class="tech-chip">Pilot Protocol</span>
-    <span class="tech-chip">OpenClaw</span>
-    <span class="tech-chip">G-Brain / PGLite</span>
-    <span class="tech-chip">DuckDB</span>
-    <span class="tech-chip">Swift / pilot-swift</span>
-    <span class="tech-chip">HealthKit</span>
-    <span class="tech-chip">FastAPI</span>
-    <span class="tech-chip">sentence-transformers</span>
-    <span class="tech-chip">Google OAuth</span>
-    <span class="tech-chip">Telegram</span>
-    <span class="tech-chip">Docker Compose · GCP</span>
+    <div class="expand-banner">
+      <div class="expand-banner-left">
+        <div class="insight-kicker">Design principle</div>
+        <h3>One G-Brain per<br><em>use case</em>. Per agent.</h3>
+        <p>The Collector's G-Brain holds factual observations. The Coach's G-Brain holds interpretations and prior nudges. Neither agent can corrupt the other's record. They don't share a database or a socket.</p>
+        <p>G-Brains communicate effectively without a lot of shared priors — they converge on meaning through message exchange. The more agents you add, the more they pool, the better they reason.</p>
+        <p>To add a third agent: spin up a container, get its Pilot node ID, share it with the others. Done. No schema migration, no service mesh, no coordinator.</p>
+      </div>
+      <div>
+        <div class="expand-agents">
+          <div class="expand-agent">
+            <div class="expand-agent-name">Sleep Coach</div>
+            <div class="expand-agent-desc">Own G-Brain. Subscribes to sleep ChangeEvents. Node ID shared with Coach.</div>
+          </div>
+          <div class="expand-agent">
+            <div class="expand-agent-name">Training Load Agent</div>
+            <div class="expand-agent-desc">Queries Collector directly. Maintains ACWR + monotony state in its own G-Brain.</div>
+          </div>
+          <div class="expand-agent">
+            <div class="expand-agent-name">Calendar Reasoner</div>
+            <div class="expand-agent-desc">Pulls Google Calendar. Correlates meeting density with HRV via Collector queries.</div>
+          </div>
+          <div class="expand-agent">
+            <div class="expand-agent-name">Family Health Node</div>
+            <div class="expand-agent-desc">Separate device. Separate Pilot identity. Approve the handshake — it's in the network.</div>
+          </div>
+          <div class="expand-agent">
+            <div class="expand-agent-name">Nutrition Agent</div>
+            <div class="expand-agent-desc">Own G-Brain trained on dietary logs. Queries health data to correlate HRV with meals.</div>
+          </div>
+          <div class="expand-agent">
+            <div class="expand-agent-name">Your next idea</div>
+            <div class="expand-agent-desc">One Pilot node ID. That's the only onboarding step.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-strip">
+      <div class="tech-item">Pilot Protocol</div>
+      <div class="tech-item">OpenClaw</div>
+      <div class="tech-item">G-Brain / PGLite</div>
+      <div class="tech-item">DuckDB</div>
+      <div class="tech-item">pilot-swift (Go → iOS)</div>
+      <div class="tech-item">HealthKit</div>
+      <div class="tech-item">FastAPI · RAG</div>
+      <div class="tech-item">Google OAuth</div>
+      <div class="tech-item">Telegram</div>
+      <div class="tech-item">Docker · GCP</div>
+    </div>
   </div>
 </section>
 
 <!-- FOOTER -->
 <footer>
-  <span class="footer-logo">g-stack</span>
-  <div class="footer-links">
-    <a href="https://github.com/TeoSlayer/g-stack-hackathon" target="_blank">GitHub</a>
-    <a href="https://github.com/TeoSlayer/g-stack-hackathon/blob/main/README.md" target="_blank">README</a>
+  <div class="wrap footer-row">
+    <div>
+      <div class="footer-brand"><a href="https://vulturelabs.com">Vulture Labs</a></div>
+      <div class="footer-tag">Your data. Your agents. Your network.</div>
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com/TeoSlayer/g-stack-hackathon">GitHub</a>
+      <a href="https://github.com/TeoSlayer/g-stack-hackathon/blob/main/README.md">README</a>
+      <a href="https://pilotprotocol.network">Pilot Protocol</a>
+    </div>
   </div>
-  <span class="copy">AGPL-3.0-or-later · YC Hackathon 2025</span>
 </footer>
 
 <script>
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-  }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
-
-  document.querySelectorAll('.fade-up').forEach((el, i) => {
-    el.style.transitionDelay = `${(i % 4) * 55}ms`;
-    observer.observe(el);
+(function(){
+  var btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if (isLight) {
+      document.documentElement.removeAttribute('data-theme');
+      try { localStorage.setItem('gstack-theme', 'dark'); } catch(e) {}
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      try { localStorage.setItem('gstack-theme', 'light'); } catch(e) {}
+    }
   });
+})();
 </script>
 
 </body>
