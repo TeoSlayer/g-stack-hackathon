@@ -1,5 +1,23 @@
 # Redeploy to GCP VM `hackathon-openclaw`
 
+> **TL;DR — fully scripted path**
+>
+> ```bash
+> gcloud compute scp --recurse ~/g-stack-hackathon hackathon-openclaw:~/
+> gcloud compute ssh hackathon-openclaw --zone us-central1-a -- \
+>     bash ~/g-stack-hackathon/infra/scripts/bootstrap-vm.sh
+> # Then re-OAuth Google Calendar (step 7 below) and that's it.
+> ```
+>
+> The script chains everything below into one idempotent run:
+> docker → node → bun → uv → openclaw → gbrain → workspace venv →
+> linux pilot binary → docker stack → openclaw gateway → patch env →
+> register MCPs → install health-intelligence service → install coach
+> proactive watch.
+
+---
+
+
 The current laptop setup uses Pilot's NAT-relay path (both daemons behind the
 same household NAT) so query round-trip is 30–90s. The GCP VM
 `hackathon-openclaw` has a public IP and no NAT loopback, so direct

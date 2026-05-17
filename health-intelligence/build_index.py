@@ -1,14 +1,18 @@
 """
-build_index.py — run once to encode all intervention records and cache embeddings.
+build_index.py — run once to upload every intervention record to ZeroEntropy.
 
     python build_index.py
 
-This scans all 17 papers in prescriptive_papers.json, embeds every intervention
-sentence using all-MiniLM-L6-v2, and writes data/embed_cache.npz.
+This scans all 17 papers in `data/prescriptive_papers.json`, cross-references
+metric names from `data/health_metrics.json`, builds one document per
+intervention sentence, and uploads them to the ZE collection named
+`health-intelligence` (overridable via `ZE_COLLECTION`).
 
-Subsequent calls to retrieve_interventions() load from cache instantly.
-Re-run whenever either JSON file changes (cache is hash-invalidated automatically).
+Re-runs are idempotent — documents are overwritten by path so the index
+always reflects the current JSON.
 """
+
+from __future__ import annotations
 
 import logging
 import sys
@@ -19,8 +23,9 @@ log = logging.getLogger(__name__)
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from retrieval.index import MetricIndex
 from retrieval.embed import EmbeddingStore
+from retrieval.index import MetricIndex
+from retrieval.ze_client import COLLECTION, get_client
 
 
 def main() -> None:
@@ -28,44 +33,52 @@ def main() -> None:
     idx = MetricIndex()
     log.info("%r", idx)
 
-    covered   = idx.covered_metric_ids()
-    all_ids   = set(idx._metrics.keys())
+    covered = idx.covered_metric_ids()
+    all_ids = set(idx._metrics.keys())
     uncovered = all_ids - covered
 
     log.info("Metrics covered by at least one paper : %s", sorted(covered))
     log.info("Metrics with no papers yet             : %s", sorted(uncovered))
     log.info("")
 
-    log.info("Building / loading embedding store…")
-    store = EmbeddingStore(idx.records)
+    log.info("Ensuring ZE collection %r and uploading documents…", COLLECTION)
+    store = EmbeddingStore(idx.records, build=True)
+
+    log.info("")
+    log.info("Querying ZE for collection status…")
+    status = get_client().status.get_status(collection_name=COLLECTION)
     log.info(
-        "Embeddings ready: %d records, shape %s",
-        len(store.records), store.embeddings.shape,
+        "  collection=%r  documents=%d  indexed=%d  parsing=%d  indexing=%d  failed=%d",
+        COLLECTION,
+        status.num_documents,
+        status.num_indexed_documents,
+        status.num_parsing_documents,
+        status.num_indexing_documents,
+        status.num_failed_documents,
     )
 
-    # Smoke-test: query each paper's own title and verify its interventions
-    # land in the top results.
+    # Smoke test: query each paper's title and confirm at least one of its
+    # interventions surfaces in the top results.
     log.info("")
-    log.info("=== Smoke test — querying each paper against its own interventions ===")
+    log.info("=== Smoke test — querying each paper title ===")
     errors = 0
-    for paper_id in range(1, 18):
+    paper_ids_with_records = sorted({r.paper_id for r in idx.records})
+    for paper_id in paper_ids_with_records:
         paper_records = [r for r in idx.records if r.paper_id == paper_id]
-        if not paper_records:
-            continue
         query = paper_records[0].paper_title
-        hits  = store.query(query, top_k=len(paper_records) + 3)
-        hit_ids = {h[1].paper_id for h in hits}
+        hits = store.query(query, top_k=len(paper_records) + 3, rerank=False)
+        hit_ids = {rec.paper_id for _score, rec in hits}
         ok = paper_id in hit_ids
-        status = "OK" if ok else "MISS"
+        status_label = "OK" if ok else "MISS"
         if not ok:
             errors += 1
-        log.info("  Paper %2d  %-7s  %s", paper_id, status, query[:70])
+        log.info("  Paper %2d  %-7s  %s", paper_id, status_label, query[:70])
 
     log.info("")
     if errors == 0:
-        log.info("All %d papers self-retrieve correctly. Index ready.", 17)
+        log.info("All %d papers self-retrieve correctly. Index ready.", len(paper_ids_with_records))
     else:
-        log.warning("%d paper(s) failed self-retrieval — check embedding quality.", errors)
+        log.warning("%d paper(s) failed self-retrieval — investigate before relying on results.", errors)
 
 
 if __name__ == "__main__":

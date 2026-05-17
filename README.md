@@ -96,29 +96,53 @@ restarts without losing the other's work.
 |---|---|
 | Pilot Swift SDK | ✓ working |
 | iOS app (collection layer + on-device analysis) | ✓ working standalone |
-| Embedded Pilot in iOS + outbox | next |
-| Collector skill (Pilot listener + DuckDB) | next |
-| Coach skill (Telegram + LLM + tools) | next |
-| gbrain wired as Coach memory | next |
-| gstack invocation in Coach | next |
+| **Embedded Pilot in iOS + outbox** | ✓ live, iOS pushing BINARY envelopes to the VM |
+| **Collector agent** (Pilot 1001 + DuckDB + read-only SQL on 1003) | ✓ running |
+| **Coach agent** (Telegram bot, change-event subscriber, gbrain memory) | ✓ running on `@yccoachbot` |
+| **Per-agent gbrains** (separate PGLite, MCP-exposed) | ✓ both populated with calendar |
+| **health-intelligence RAG** (17 papers, 89 interventions, ZeroEntropy + zerank-2) | ✓ wired into both agents |
+| gstack tool invocations in Coach | next |
+| Seven rule-loop models (port from `Models.swift`) | next |
 | Additional sources beyond health | future |
 
 ## Getting started
 
-The pieces are independently buildable while the pipeline is being wired.
+The whole production stack runs on a GCP VM (`hackathon-openclaw`). Locally
+you only need `gcloud` to reach it. To set up the `claw` shell helpers in
+your zsh (so you can talk to either agent from your laptop):
 
-```sh
-# iOS app, standalone:
-cd health-sync
-xcodegen generate
-open HealthSync.xcworkspace
-
-# pilot-swift smoke test (any platform):
-cd pilot-swift
-scripts/run-smoke-sim.sh info
+```zsh
+# One-time in ~/.zshrc — see infra/CLAW_HELPER.sh for the canonical block.
+unalias claw  2>/dev/null
+unalias clawj 2>/dev/null
+claw() {
+  local agent="$1"; shift
+  local msg="$*"
+  gcloud compute ssh hackathon-openclaw --zone us-central1-a \
+    --command="set -a; source ~/.env; set +a; openclaw agent --agent $agent --local --message $(printf '%q' "$msg")"
+}
 ```
 
-Each sub-project's `README.md` has the build and run details.
+Then:
+
+```zsh
+claw collector "How many samples in the warehouse by type? One SQL."
+claw coach     "Was 5/14 a tough recovery day? Cite calendar + bio."
+```
+
+Or message **`@yccoachbot`** on Telegram for the Coach.
+
+For local builds (iOS + Swift SDK):
+
+```sh
+cd health-sync && xcodegen generate && open HealthSync.xcworkspace
+cd pilot-swift && scripts/run-smoke-sim.sh info
+```
+
+Each sub-project's `README.md` has the deep build/run details. For the
+big-picture narrative of what runs where, read **[SPEC.md](SPEC.md)**.
+For role contracts read **[ROLES.md](ROLES.md)**. For the deployment
+playbook read **[infra/REDEPLOY_GCP.md](infra/REDEPLOY_GCP.md)**.
 
 ## License
 

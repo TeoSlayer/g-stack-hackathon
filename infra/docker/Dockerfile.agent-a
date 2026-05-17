@@ -31,7 +31,9 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY agent-a ./agent-a
 COPY agent-b ./agent-b
-RUN pip install --no-cache-dir -e .
+# DuckDB 1.5+ delegates tz-aware functions (to_timestamp, now()) to pytz.
+# Without it, every SELECT that touches start_utc dies with ModuleNotFoundError.
+RUN pip install --no-cache-dir -e . && pip install --no-cache-dir pytz
 
 COPY infra/docker/entrypoint-agent-a.sh /usr/local/bin/entrypoint-agent-a.sh
 RUN chmod +x /usr/local/bin/entrypoint-agent-a.sh

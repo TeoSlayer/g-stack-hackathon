@@ -60,19 +60,27 @@ def unwrap_pilot_transport(obj: dict) -> tuple[dict, Optional[str]]:
         return obj, None
     sender = obj.get("agent") or obj.get("from") or obj.get("sender")
 
-    # iOS HealthSync ships envelopes as zlib-compressed JSON in base64.
+    # iOS HealthSync ships envelopes as deflate-compressed JSON in base64.
     # Pilot's daemon writes them to disk as `BINARY-*.json` with shape
     # `{ from, bytes, data_b64, received_at, type: "BINARY" }`.
+    #
+    # iOS specifically uses RAW deflate (no zlib header) — wbits=-15. We also
+    # try standard zlib, auto (gzip + zlib), and raw-bytes-as-JSON fallback so
+    # other Pilot peers can send the same envelope shape without coordination.
     if isinstance(obj.get("data_b64"), str):
         try:
             import base64 as _b64
             import zlib as _zlib
             raw = _b64.b64decode(obj["data_b64"])
-            try:
-                decompressed = _zlib.decompress(raw)
-            except _zlib.error:
-                # Pilot can also send raw (uncompressed) binary; assume utf-8 JSON.
-                decompressed = raw
+            decompressed = None
+            for wbits in (-15, 15, 47):  # raw deflate (iOS), zlib, auto-detect
+                try:
+                    decompressed = _zlib.decompress(raw, wbits)
+                    break
+                except _zlib.error:
+                    continue
+            if decompressed is None:
+                decompressed = raw  # fall through: maybe it's plain JSON bytes
             inner = json.loads(decompressed)
             if isinstance(inner, dict):
                 return inner, sender

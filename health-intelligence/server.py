@@ -57,9 +57,9 @@ def _startup() -> None:
     _retrieve_mod._index = _index
     _retrieve_mod._store = _store
     log.info(
-        "Ready — %d records, embedding shape %s",
+        "Ready — %d records indexed in ZE collection %r",
         len(_store.records),
-        _store.embeddings.shape,
+        _store.collection,
     )
 
 
